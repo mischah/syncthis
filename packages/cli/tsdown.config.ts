@@ -5,5 +5,6 @@ export default defineConfig({
   format: 'esm',
   clean: true,
   shims: true,
+  banner: '#!/usr/bin/env node',
   fixedExtension: false,
 });
