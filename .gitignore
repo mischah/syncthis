@@ -1,0 +1,5 @@
+node_modules
+dist
+.syncthis
+.claude
+.DS_Store

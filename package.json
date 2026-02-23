@@ -1,0 +1,21 @@
+{
+  "private": true,
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "build": "npm run build -w packages/cli",
+    "test": "npm run test -w packages/cli",
+    "dev": "npm run dev -w packages/cli",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.0",
+    "husky": "^9.0.0",
+    "lint-staged": "^15.0.0"
+  },
+  "lint-staged": {
+    "*.{ts,js,json}": ["biome check --write --no-errors-on-unmatched"]
+  }
+}
