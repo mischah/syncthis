@@ -74,6 +74,7 @@ async function handleInitRemote(dirPath: string, remote: string, branch: string)
 
   if (!isRepo) {
     await git.init();
+    await git.raw(['symbolic-ref', 'HEAD', `refs/heads/${branch}`]);
     await git.addRemote('origin', remote);
   } else {
     const remotes = await git.getRemotes(true);

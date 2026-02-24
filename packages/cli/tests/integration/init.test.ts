@@ -76,6 +76,30 @@ describe('handleInit --remote', () => {
     expect(gitignore).toContain('.obsidian/workspace.json');
   });
 
+  it('sets the git branch to main by default', async () => {
+    const remoteDir = join(tempDir, 'remote.git');
+    const workDir = join(tempDir, 'work');
+    await mkdir(workDir, { recursive: true });
+    await simpleGit().raw(['init', '--bare', remoteDir]);
+
+    await handleInit({ path: workDir, remote: `file://${remoteDir}` });
+
+    const branch = await simpleGit(workDir).revparse(['--abbrev-ref', 'HEAD']);
+    expect(branch.trim()).toBe('main');
+  });
+
+  it('sets the git branch to the configured --branch value', async () => {
+    const remoteDir = join(tempDir, 'remote.git');
+    const workDir = join(tempDir, 'work');
+    await mkdir(workDir, { recursive: true });
+    await simpleGit().raw(['init', '--bare', remoteDir]);
+
+    await handleInit({ path: workDir, remote: `file://${remoteDir}`, branch: 'trunk' });
+
+    const branch = await simpleGit(workDir).revparse(['--abbrev-ref', 'HEAD']);
+    expect(branch.trim()).toBe('trunk');
+  });
+
   it('rejects a second init with exit code 1 and a clear error message', async () => {
     const remoteDir = join(tempDir, 'remote.git');
     const workDir = join(tempDir, 'work');
