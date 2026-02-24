@@ -22,7 +22,7 @@
     "test": "vitest run --coverage",
     "test:watch": "vitest --coverage",
     "typecheck": "tsc --noEmit",
-    "prerelease": "npm run build && cp ../../README.md ./dist/README.md",
+    "prerelease": "npm run build",
     "release": "np",
     "prerelease:preview": "npm run prerelease",
     "release:preview": "np --preview"
