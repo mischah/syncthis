@@ -1,0 +1,42 @@
+version: 2
+updates:
+  # 1. npm Abhängigkeiten (Root + Workspaces)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+    versioning-strategy: increase
+    open-pull-requests-limit: 5
+
+    labels:
+      - "dependencies"
+      - "npm"
+      - "dependabot"
+
+    groups:
+      prod-nonbreaking:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+        patterns:
+          - "*"
+
+      dev-nonbreaking:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+        patterns:
+          - "*"
+
+  # 2. GitHub Actions Updates
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "github-actions"
+      - "dependabot"
