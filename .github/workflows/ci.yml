@@ -42,7 +42,6 @@ jobs:
          token: ${{ secrets.CODECOV_TOKEN }}
          files: packages/cli/coverage/lcov.info
          flags: cli
-         root_dir: packages/cli
 
       - name: Coverage Report
         uses: davelosert/vitest-coverage-report-action@v2
