@@ -44,7 +44,6 @@ jobs:
         with:
          token: ${{ secrets.CODECOV_TOKEN }}
          files: packages/cli/coverage/lcov.info
-         flags: cli
          disable_search: true
 
       - name: Coverage Report
