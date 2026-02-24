@@ -1,6 +1,6 @@
 {
   "name": "syncthis",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "description": "Automatic directory synchronization via Git",
   "type": "module",
   "bin": {
@@ -15,22 +15,29 @@
     "dev": "tsx src/cli.ts",
     "test": "vitest run --coverage",
     "test:watch": "vitest --coverage",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prerelease": "npm run build",
+    "release": "np",
+    "prerelease:preview": "npm run prerelease",
+    "release:preview": "np --preview"
   },
   "keywords": ["git", "sync", "cli", "obsidian", "backup", "auto-commit"],
   "license": "MIT",
   "dependencies": {
+    "croner": "^8.0.0",
     "meow": "^13.0.0",
-    "simple-git": "^3.0.0",
-    "croner": "^8.0.0"
+    "simple-git": "^3.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "^2.0.0",
+    "execa": "^9.0.0",
     "tsdown": "^0.20.0",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0",
-    "@vitest/coverage-v8": "^2.0.0",
-    "vitest": "^2.0.0",
-    "execa": "^9.0.0"
+    "vitest": "^2.0.0"
+  },
+  "np": {
+    "contents": "dist"
   }
 }
