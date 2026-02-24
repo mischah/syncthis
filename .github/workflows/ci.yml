@@ -35,10 +35,7 @@ jobs:
 
       - name: Test
         run: npm test
-
-      - name: Fix lcov paths for Codecov
-        run: sed -i 's|SF:src/|SF:packages/cli/src/|g' packages/cli/coverage/lcov.info
-
+        
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
