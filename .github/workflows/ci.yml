@@ -39,7 +39,9 @@ jobs:
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
-         token: ${{ secrets.CODECOV_TOKEN }} #
+         token: ${{ secrets.CODECOV_TOKEN }}
+         files: packages/cli/coverage/lcov.info
+         flags: cli
 
       - name: Coverage Report
         uses: davelosert/vitest-coverage-report-action@v2
