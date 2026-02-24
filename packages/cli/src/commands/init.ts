@@ -116,6 +116,7 @@ async function handleInitRemote(dirPath: string, remote: string, branch: string)
   if (statusOutput.trim() !== '') {
     await git.add(['-A']);
     await git.commit('chore: initial syncthis setup');
+    await git.push(['--set-upstream', 'origin', branch]);
   }
 
   console.log(`Initialized syncthis in ${dirPath}`);

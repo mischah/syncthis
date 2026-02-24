@@ -100,6 +100,29 @@ describe('handleInit --remote', () => {
     expect(branch.trim()).toBe('trunk');
   });
 
+  it('pushes the initial commit and sets the upstream tracking branch', async () => {
+    const remoteDir = join(tempDir, 'remote.git');
+    const workDir = join(tempDir, 'work');
+    await mkdir(workDir, { recursive: true });
+    await simpleGit().raw(['init', '--bare', remoteDir]);
+
+    await handleInit({ path: workDir, remote: `file://${remoteDir}` });
+
+    // origin/main must exist (push happened)
+    const remoteGit = simpleGit(remoteDir);
+    const refs = await remoteGit.raw(['show-ref', '--heads']);
+    expect(refs).toContain('refs/heads/main');
+
+    // Local branch must track origin/main
+    const upstream = await simpleGit(workDir).raw([
+      'rev-parse',
+      '--abbrev-ref',
+      '--symbolic-full-name',
+      '@{u}',
+    ]);
+    expect(upstream.trim()).toBe('origin/main');
+  });
+
   it('rejects a second init with exit code 1 and a clear error message', async () => {
     const remoteDir = join(tempDir, 'remote.git');
     const workDir = join(tempDir, 'work');
