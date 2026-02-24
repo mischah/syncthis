@@ -6,7 +6,7 @@ export default defineConfig({
     include: ['tests/**/*.test.ts'],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json-summary', 'json'],
+      reporter: ['text', 'json', 'html', 'json-summary'],
       reportOnFailure: true,
       include: ['src/**/*.ts'],
       exclude: ['src/cli.ts'],
