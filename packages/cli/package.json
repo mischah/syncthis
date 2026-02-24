@@ -1,5 +1,11 @@
 {
   "name": "syncthis",
+  "repository": "mischah/syncthis",
+  "author": {
+    "name": "Michael Kühnel",
+    "email": "mail@michael-kuehnel.de",
+    "url": "http://michael-kuehnel.de"
+  },
   "version": "0.1.0",
   "description": "Automatic directory synchronization via Git",
   "type": "module",
@@ -16,7 +22,7 @@
     "test": "vitest run --coverage",
     "test:watch": "vitest --coverage",
     "typecheck": "tsc --noEmit",
-    "prerelease": "npm run build",
+    "prerelease": "npm run build && cp ../../README.md ./dist/README.md",
     "release": "np",
     "prerelease:preview": "npm run prerelease",
     "release:preview": "np --preview"
