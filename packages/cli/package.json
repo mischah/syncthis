@@ -25,7 +25,7 @@
   "license": "MIT",
   "dependencies": {
     "croner": "^8.0.0",
-    "meow": "^13.0.0",
+    "meow": "^14.1.0",
     "simple-git": "^3.0.0"
   },
   "devDependencies": {
