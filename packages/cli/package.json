@@ -31,18 +31,18 @@
   "keywords": ["git", "sync", "cli", "obsidian", "backup", "auto-commit"],
   "license": "MIT",
   "dependencies": {
-    "croner": "^8.0.0",
-    "meow": "^14.1.0",
-    "simple-git": "^3.0.0"
+    "croner": "8.1.2",
+    "meow": "14.1.0",
+    "simple-git": "3.32.2"
   },
   "devDependencies": {
-    "@types/node": "^25.3.0",
-    "@vitest/coverage-v8": "^4.0.18",
-    "execa": "^9.0.0",
-    "tsdown": "^0.20.0",
-    "tsx": "^4.0.0",
-    "typescript": "^5.0.0",
-    "vitest": "^4.0.18"
+    "@types/node": "25.3.0",
+    "@vitest/coverage-v8": "4.0.18",
+    "execa": "9.6.1",
+    "tsdown": "0.20.3",
+    "tsx": "4.21.0",
+    "typescript": "5.9.3",
+    "vitest": "4.0.18"
   },
   "np": {
     "contents": "dist"
