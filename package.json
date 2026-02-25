@@ -20,6 +20,6 @@
     "np": "^11.0.2"
   },
   "lint-staged": {
-    "*.{ts,js,json}": ["biome check --write --no-errors-on-unmatched"]
+    "*.{ts,js,json}": ["biome format --write", "biome check --write --no-errors-on-unmatched"]
   }
 }
