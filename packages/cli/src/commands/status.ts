@@ -2,7 +2,7 @@ import { access } from 'node:fs/promises';
 import { join } from 'node:path';
 import simpleGit from 'simple-git';
 import { type SyncthisConfig, loadConfig } from '../config.js';
-import { isLocked } from '../lock.js';
+import { isLocked, readLockFile } from '../lock.js';
 
 export interface StatusFlags {
   path: string;
@@ -44,9 +44,12 @@ export async function handleStatus(flags: StatusFlags): Promise<void> {
   const lockStatus = await isLocked(dirPath);
   if (lockStatus.locked) {
     console.log(`\nSync process: running (PID: ${lockStatus.pid})`);
-    if (config !== null) {
-      const schedule = config.cron ?? `every ${config.interval}s`;
-      console.log(`  Next sync schedule: ${schedule}`);
+    const lockData = await readLockFile(dirPath);
+    const runningSchedule =
+      lockData?.schedule ??
+      (config !== null ? (config.cron ?? `every ${config.interval}s`) : undefined);
+    if (runningSchedule !== undefined) {
+      console.log(`  Schedule: ${runningSchedule}`);
     }
   } else {
     console.log('\nSync process: not running');

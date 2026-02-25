@@ -56,9 +56,11 @@ export async function handleStart(flags: StartFlags): Promise<void> {
   const logDir = join(dirPath, '.syncthis', 'logs');
   const logger = createLogger({ level: logLevel, logDir });
 
+  const schedule = config.cron ?? `${config.interval}s`;
+
   // Acquire lock (removes stale locks automatically)
   try {
-    await acquireLock(dirPath);
+    await acquireLock(dirPath, schedule);
   } catch (err) {
     logger.error((err as Error).message);
     process.exit(1);
@@ -86,7 +88,6 @@ export async function handleStart(flags: StartFlags): Promise<void> {
     void gracefulShutdown();
   });
 
-  const schedule = config.cron ?? `${config.interval}s`;
   logger.info(`Sync started. Schedule: ${schedule}. Watching: ${dirPath}`);
 
   // Run initial sync cycle

@@ -3,9 +3,10 @@ import { join } from 'node:path';
 
 const LOCK_FILENAME = '.syncthis.lock';
 
-interface LockData {
+export interface LockData {
   pid: number;
   startedAt: string;
+  schedule?: string;
 }
 
 function isProcessRunning(pid: number): boolean {
@@ -20,7 +21,7 @@ function isProcessRunning(pid: number): boolean {
   }
 }
 
-async function readLockFile(dirPath: string): Promise<LockData | null> {
+export async function readLockFile(dirPath: string): Promise<LockData | null> {
   try {
     const content = await readFile(join(dirPath, LOCK_FILENAME), 'utf8');
     return JSON.parse(content) as LockData;
@@ -49,7 +50,7 @@ export async function isLocked(dirPath: string): Promise<{ locked: boolean; pid?
   return { locked: true, pid: lockData.pid };
 }
 
-export async function acquireLock(dirPath: string): Promise<void> {
+export async function acquireLock(dirPath: string, schedule?: string): Promise<void> {
   const lockData = await readLockFile(dirPath);
   if (lockData !== null) {
     if (isProcessRunning(lockData.pid)) {
@@ -60,6 +61,7 @@ export async function acquireLock(dirPath: string): Promise<void> {
   const newLock: LockData = {
     pid: process.pid,
     startedAt: new Date().toISOString(),
+    ...(schedule !== undefined && { schedule }),
   };
   await writeFile(join(dirPath, LOCK_FILENAME), `${JSON.stringify(newLock, null, 2)}\n`, 'utf8');
 }
