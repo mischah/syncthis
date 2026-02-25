@@ -3,6 +3,7 @@
   "workspaces": ["packages/*"],
   "scripts": {
     "build": "npm run build -w packages/cli",
+    "typecheck": "npm run typecheck -w packages/cli",
     "test": "npm run test -w packages/cli",
     "dev": "npm run dev -w packages/cli",
     "lint": "biome check .",
