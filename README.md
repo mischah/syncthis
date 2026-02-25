@@ -187,31 +187,29 @@ Every sync cycle follows these steps:
 Scheduled trigger (cron or interval)
           │
           ▼
-  ┌───────────────────┐
-  │  git status       │──── No changes ──────────────────────► Skip (no commit)
-  └────────┬──────────┘
-           │ Changes detected
-           ▼
-  ┌───────────────────┐
-  │  git add -A       │
-  └────────┬──────────┘
-           │
-           ▼
-  ┌──────────────────────────────────────────────┐
-  │  git commit -m                               │
-  │  "sync: auto-commit 2025-02-20T14:30:00      │
-  │   (3 files changed)"                         │
-  └────────┬─────────────────────────────────────┘
+  ┌───────────────────┐   No local      ┌─────────────────────────────────────┐
+  │  git status       │── changes ─────►│  git pull --rebase                  │
+  └────────┬──────────┘                 └──┬──────────────────────────────────┘
+           │ Changes detected              │ OK                  │ Conflict/Error
+           ▼                              ▼                      ▼
+  ┌───────────────────┐            HEAD changed?          ❌ Sync paused /
+  │  git add -A       │             │         │            ⚠️  retry next cycle
+  └────────┬──────────┘            Yes        No
+           │                        │         │
+           ▼                        ▼         ▼
+  ┌──────────────────────────┐  ✅ Pulled  ✅ No-op
+  │  git commit -m "sync:…"  │  remote
+  └────────┬─────────────────┘  changes
            │
            ▼
   ┌───────────────────────┐
-  │  git pull --rebase    │──── Conflict ────────────────────► ❌ Sync paused
-  └────────┬──────────────┘                                        Exit code 1
-           │ OK                                              (manual resolution
-           ▼                                                       required)
+  │  git pull --rebase    │──── Conflict / Error ────────► ❌ / ⚠️  (see above)
+  └────────┬──────────────┘
+           │ OK
+           ▼
   ┌───────────────────┐
-  │  git push         │──── Network error ───────────────────► ⚠️  Log warning,
-  └────────┬──────────┘                                           retry next cycle
+  │  git push         │──── Network error ───────────────► ⚠️  Log warning,
+  └────────┬──────────┘                                        retry next cycle
            │ OK
            ▼
         ✅ Done

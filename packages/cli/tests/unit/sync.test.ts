@@ -38,16 +38,48 @@ beforeEach(() => {
 });
 
 describe('runSyncCycle', () => {
-  it('returns { status: "no-changes" } and skips git operations when there are no changes', async () => {
-    mockGit.raw.mockResolvedValue('');
+  it('returns { status: "no-changes" } when no local or remote changes exist', async () => {
+    // git status → empty, rev-parse HEAD (before) → same as after pull
+    mockGit.raw
+      .mockResolvedValueOnce('') // git status --porcelain
+      .mockResolvedValueOnce('abc1234\n') // rev-parse HEAD (before pull)
+      .mockResolvedValueOnce('abc1234\n'); // rev-parse HEAD (after pull)
 
     const result = await runSyncCycle('/repo', config, logger);
 
     expect(result).toEqual({ status: 'no-changes' });
     expect(mockGit.add).not.toHaveBeenCalled();
     expect(mockGit.commit).not.toHaveBeenCalled();
-    expect(mockGit.pull).not.toHaveBeenCalled();
+    expect(mockGit.pull).toHaveBeenCalledWith('origin', 'main', ['--rebase']);
     expect(mockGit.push).not.toHaveBeenCalled();
+  });
+
+  it('returns { status: "pulled" } when no local changes but remote changes exist', async () => {
+    mockGit.raw
+      .mockResolvedValueOnce('') // git status --porcelain
+      .mockResolvedValueOnce('abc1234\n') // rev-parse HEAD (before pull)
+      .mockResolvedValueOnce('def5678\n'); // rev-parse HEAD (after pull — different!)
+
+    const result = await runSyncCycle('/repo', config, logger);
+
+    expect(result).toEqual({ status: 'pulled' });
+    expect(mockGit.add).not.toHaveBeenCalled();
+    expect(mockGit.commit).not.toHaveBeenCalled();
+    expect(mockGit.pull).toHaveBeenCalledWith('origin', 'main', ['--rebase']);
+    expect(mockGit.push).not.toHaveBeenCalled();
+  });
+
+  it('returns { status: "network-error" } when pull fails and no local changes', async () => {
+    mockGit.raw
+      .mockResolvedValueOnce('') // git status --porcelain
+      .mockResolvedValueOnce('abc1234\n') // rev-parse HEAD (before pull)
+      .mockResolvedValueOnce(''); // git status --porcelain (post-pull conflict check)
+    mockGit.pull.mockRejectedValue(new Error('network error'));
+
+    const result = await runSyncCycle('/repo', config, logger);
+
+    expect(result.status).toBe('network-error');
+    expect(logger.warn).toHaveBeenCalled();
   });
 
   it('calls add, commit, pull, push in correct order and returns { status: "synced" }', async () => {
@@ -86,7 +118,10 @@ describe('runSyncCycle', () => {
   });
 
   it('returns { status: "conflict" } and logs error when rebase detects conflicts', async () => {
-    mockGit.raw.mockResolvedValueOnce('M file1.md\n').mockResolvedValueOnce('UU file1.md\n');
+    mockGit.raw
+      .mockResolvedValueOnce('M file1.md\n') // git status --porcelain
+      .mockResolvedValueOnce('abc1234\n') // rev-parse HEAD (before pull)
+      .mockResolvedValueOnce('UU file1.md\n'); // git status --porcelain (post-pull conflict check)
     mockGit.pull.mockRejectedValue(new Error('CONFLICTS'));
 
     const result = await runSyncCycle('/repo', config, logger);
