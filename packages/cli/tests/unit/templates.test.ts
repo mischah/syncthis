@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  type DaemonConfig,
-  generatePlist,
-  generateSystemdUnit,
-} from '../../src/daemon/templates.js';
+import type { DaemonConfig } from '../../src/daemon/platform.js';
+import { generatePlist, generateSystemdUnit } from '../../src/daemon/templates.js';
 
 const BASE_CONFIG: DaemonConfig = {
   serviceName: 'com.syncthis.user-vault-notes',

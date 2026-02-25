@@ -1,12 +1,4 @@
-export interface DaemonConfig {
-  serviceName: string;
-  dirPath: string;
-  syncthisBinary: string;
-  cron?: string;
-  interval?: number;
-  logLevel?: string;
-  autostart: boolean;
-}
+import type { DaemonConfig } from './platform.js';
 
 function buildProgramArguments(config: DaemonConfig): string[] {
   const args = [config.syncthisBinary, 'start', '--path', config.dirPath];
