@@ -28,9 +28,23 @@ export function startScheduler(
     return { stop: () => job.stop() };
   }
 
+  // Recursive setTimeout instead of setInterval: each tick schedules the next
+  // only after syncFn completes. This survives OS sleep/wake cycles, where
+  // setInterval timers can silently stop firing.
   const intervalMs = (config.interval ?? 0) * 1000;
-  const handle = setInterval(() => {
-    void runIfIdle();
-  }, intervalMs);
-  return { stop: () => clearInterval(handle) };
+  let stopped = false;
+  let timer: ReturnType<typeof setTimeout>;
+  function tick(): void {
+    if (stopped) return;
+    timer = setTimeout(() => {
+      void runIfIdle().then(tick);
+    }, intervalMs);
+  }
+  tick();
+  return {
+    stop: () => {
+      stopped = true;
+      clearTimeout(timer);
+    },
+  };
 }
