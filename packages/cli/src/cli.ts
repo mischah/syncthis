@@ -27,6 +27,7 @@ const cli = meow(
 `,
   {
     importMeta: import.meta,
+    allowUnknownFlags: false,
     flags: {
       path: { type: 'string', default: process.cwd() },
       remote: { type: 'string' },
