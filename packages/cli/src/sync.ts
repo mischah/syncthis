@@ -35,6 +35,7 @@ export async function runSyncCycle(
   const filesChanged = changedLines.length;
 
   if (filesChanged === 0) {
+    logger.debug('Sync cycle: no changes detected.');
     return { status: 'no-changes' };
   }
 
