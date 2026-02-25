@@ -37,7 +37,7 @@
   },
   "devDependencies": {
     "@types/node": "^25.3.0",
-    "@vitest/coverage-v8": "^2.0.0",
+    "@vitest/coverage-v8": "^4.0.18",
     "execa": "^9.0.0",
     "tsdown": "^0.20.0",
     "tsx": "^4.0.0",
