@@ -31,7 +31,7 @@ jobs:
         run: npm run lint
 
       - name: Typecheck
-        run: npm run typecheck -w packages/cli
+        run: npm run typecheck
 
       - name: Test
         run: npm test
