@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { acquireLock, isLocked, releaseLock } from '../../src/lock.js';
+import { acquireLock, isLocked, readLockFile, releaseLock } from '../../src/lock.js';
 
 const LOCK_FILE = '.syncthis.lock';
 const STALE_PID = 999999;
@@ -25,6 +25,22 @@ describe('acquireLock', () => {
     const data = JSON.parse(content);
     expect(data.pid).toBe(process.pid);
     expect(new Date(data.startedAt).toISOString()).toBe(data.startedAt);
+  });
+
+  it('stores schedule in lock file when provided', async () => {
+    await acquireLock(tempDir, '10s');
+
+    const content = await readFile(join(tempDir, LOCK_FILE), 'utf8');
+    const data = JSON.parse(content);
+    expect(data.schedule).toBe('10s');
+  });
+
+  it('omits schedule from lock file when not provided', async () => {
+    await acquireLock(tempDir);
+
+    const content = await readFile(join(tempDir, LOCK_FILE), 'utf8');
+    const data = JSON.parse(content);
+    expect(data.schedule).toBeUndefined();
   });
 
   it('throws with PID in message when lock is already held', async () => {
@@ -70,6 +86,20 @@ describe('isLocked', () => {
     const result = await isLocked(tempDir);
     expect(result.locked).toBe(true);
     expect(result.pid).toBe(process.pid);
+  });
+
+  it('returns lock data including schedule via readLockFile', async () => {
+    await acquireLock(tempDir, '*/5 * * * *');
+
+    const data = await readLockFile(tempDir);
+    expect(data).not.toBeNull();
+    expect(data?.pid).toBe(process.pid);
+    expect(data?.schedule).toBe('*/5 * * * *');
+  });
+
+  it('returns null from readLockFile when no lock file exists', async () => {
+    const data = await readLockFile(tempDir);
+    expect(data).toBeNull();
   });
 
   it('returns { locked: false } and removes stale lock file', async () => {
