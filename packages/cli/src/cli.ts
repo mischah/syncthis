@@ -1,4 +1,5 @@
 import meow from 'meow';
+import { handleDaemon } from './commands/daemon.js';
 import { handleInit } from './commands/init.js';
 import { handleStart } from './commands/start.js';
 import { handleStatus } from './commands/status.js';
@@ -10,20 +11,33 @@ const cli = meow(
 
   Commands
     init      Initialize a directory for sync
-    start     Start the sync loop
+    start     Start the sync loop (foreground)
     status    Show sync status
+    daemon    Manage background sync service
+
+  Daemon Subcommands
+    daemon start        Install and start background sync
+    daemon stop         Stop background sync
+    daemon status       Show daemon status (all or specific)
+    daemon uninstall    Remove background sync service
+    daemon logs         Show daemon logs
 
   Options
-    --path        Target directory (default: current directory)
-    --help        Show this help text
-    --version     Show version number
+    --path              Target directory (default: current directory)
+    --label             Custom daemon service name
+    --enable-autostart  Start daemon on login (default: off)
+    --follow, -f        Follow log output (daemon logs)
+    --help              Show this help text
+    --version           Show version number
 
   Examples
-    $ syncthis init --remote git@github.com:user/vault.git
-    $ syncthis init --clone git@github.com:user/vault.git --path ./my-vault
-    $ syncthis start --cron "*/5 * * * *"
-    $ syncthis start --interval 300
-    $ syncthis status
+    $ syncthis daemon start --path ~/vault
+    $ syncthis daemon start --label my-vault --enable-autostart
+    $ syncthis daemon status
+    $ syncthis daemon status --label my-vault
+    $ syncthis daemon logs --follow
+    $ syncthis daemon stop
+    $ syncthis daemon uninstall
 `,
   {
     importMeta: import.meta,
@@ -36,6 +50,10 @@ const cli = meow(
       cron: { type: 'string' },
       interval: { type: 'number' },
       logLevel: { type: 'string', default: 'info' },
+      label: { type: 'string' },
+      enableAutostart: { type: 'boolean', default: false },
+      follow: { type: 'boolean', default: false, shortFlag: 'f' },
+      lines: { type: 'number', default: 50, shortFlag: 'n' },
     },
   },
 );
@@ -64,6 +82,20 @@ switch (command) {
       path: cli.flags.path,
     });
     break;
+  case 'daemon': {
+    const subcommand = cli.input[1];
+    await handleDaemon(subcommand, {
+      path: cli.flags.path,
+      label: cli.flags.label,
+      enableAutostart: cli.flags.enableAutostart,
+      cron: cli.flags.cron,
+      interval: cli.flags.interval,
+      logLevel: cli.flags.logLevel,
+      follow: cli.flags.follow,
+      lines: cli.flags.lines,
+    });
+    break;
+  }
   case undefined:
     cli.showHelp(0);
     break;
