@@ -31,6 +31,6 @@
     }
   },
   "files": {
-    "ignore": ["dist", "node_modules", ".syncthis"]
+    "ignore": ["dist", "node_modules", ".syncthis", "coverage"]
   }
 }
