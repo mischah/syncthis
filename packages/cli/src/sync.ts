@@ -3,7 +3,7 @@ import type { SyncthisConfig } from './config.js';
 import type { Logger } from './logger.js';
 
 export interface SyncResult {
-  status: 'no-changes' | 'synced' | 'conflict' | 'network-error';
+  status: 'no-changes' | 'pulled' | 'synced' | 'conflict' | 'network-error';
   filesChanged?: number;
   error?: string;
 }
@@ -29,23 +29,21 @@ export async function runSyncCycle(
 ): Promise<SyncResult> {
   const git = simpleGit(dirPath);
 
-  // Step 1: Check for changes
+  // Step 1: Check for local changes
   const statusOutput = await git.raw(['status', '--porcelain']);
   const changedLines = statusOutput.split('\n').filter(Boolean);
   const filesChanged = changedLines.length;
 
-  if (filesChanged === 0) {
-    logger.debug('Sync cycle: no changes detected.');
-    return { status: 'no-changes' };
+  // Step 2: Commit local changes (if any)
+  if (filesChanged > 0) {
+    const timestamp = toLocalISOString(new Date());
+    const commitMessage = `sync: auto-commit ${timestamp} (${filesChanged} files changed)`;
+    await git.add(['-A']);
+    await git.commit(commitMessage);
   }
 
-  // Step 2: Add and commit
-  const timestamp = toLocalISOString(new Date());
-  const commitMessage = `sync: auto-commit ${timestamp} (${filesChanged} files changed)`;
-  await git.add(['-A']);
-  await git.commit(commitMessage);
-
-  // Step 3: Pull with rebase
+  // Step 3: Always pull with rebase to get remote changes from other devices
+  const headBefore = await git.raw(['rev-parse', 'HEAD']);
   try {
     await git.pull('origin', config.branch, ['--rebase']);
   } catch (err) {
@@ -67,13 +65,25 @@ export async function runSyncCycle(
     return { status: 'network-error', error: String(err), filesChanged };
   }
 
-  // Step 4: Push
-  try {
-    await git.push('origin', config.branch);
-    logger.info(`Sync cycle: ${filesChanged} files changed, committed, pushed.`);
-    return { status: 'synced', filesChanged };
-  } catch (err) {
-    logger.warn(`Push failed: ${String(err)}. Will retry next cycle.`);
-    return { status: 'network-error', error: String(err), filesChanged };
+  // Step 4: Push only if we committed local changes
+  if (filesChanged > 0) {
+    try {
+      await git.push('origin', config.branch);
+      logger.info(`Sync cycle: ${filesChanged} files changed, committed, pushed.`);
+      return { status: 'synced', filesChanged };
+    } catch (err) {
+      logger.warn(`Push failed: ${String(err)}. Will retry next cycle.`);
+      return { status: 'network-error', error: String(err), filesChanged };
+    }
   }
+
+  // No local changes — check if pull brought in remote changes
+  const headAfter = await git.raw(['rev-parse', 'HEAD']);
+  if (headBefore.trim() !== headAfter.trim()) {
+    logger.info('Sync cycle: pulled remote changes.');
+    return { status: 'pulled' };
+  }
+
+  logger.debug('Sync cycle: no changes detected.');
+  return { status: 'no-changes' };
 }
