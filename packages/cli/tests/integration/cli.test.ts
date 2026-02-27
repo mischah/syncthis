@@ -107,3 +107,18 @@ describe('status command', () => {
     expect(result.stdout).toContain('Not initialized');
   });
 });
+
+describe('daemon command', () => {
+  it('reports an error and exits with non-zero when no subcommand is given', async () => {
+    const result = await runCli(['daemon']);
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain('No daemon subcommand provided');
+  });
+
+  it('exits with non-zero and hints at init when .syncthis.json is missing', async () => {
+    const result = await runCli(['daemon', 'start', '--path', tempDir]);
+    expect(result.exitCode).not.toBe(0);
+    const combined = result.stdout + result.stderr;
+    expect(combined).toMatch(/init/i);
+  });
+});

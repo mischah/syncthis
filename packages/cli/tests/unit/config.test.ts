@@ -123,6 +123,36 @@ describe('validateConfig', () => {
   });
 });
 
+describe('validateConfig – daemonLabel', () => {
+  it('accepts a config with daemonLabel as a string', () => {
+    const result = validateConfig({
+      remote: VALID_REMOTE,
+      cron: '*/5 * * * *',
+      daemonLabel: 'my-vault',
+    });
+    expect(result.daemonLabel).toBe('my-vault');
+  });
+
+  it('accepts a config with daemonLabel set to null', () => {
+    const result = validateConfig({
+      remote: VALID_REMOTE,
+      cron: '*/5 * * * *',
+      daemonLabel: null,
+    });
+    expect(result.daemonLabel).toBeNull();
+  });
+
+  it('throws when daemonLabel is not a string', () => {
+    expect(() =>
+      validateConfig({
+        remote: VALID_REMOTE,
+        cron: '*/5 * * * *',
+        daemonLabel: 123,
+      }),
+    ).toThrow(/"daemonLabel"/);
+  });
+});
+
 describe('createDefaultConfig', () => {
   it('creates a config with all correct defaults', () => {
     const config = createDefaultConfig(VALID_REMOTE);

@@ -9,7 +9,7 @@ export default defineConfig({
       reporter: ['text', 'json', 'html', 'json-summary', 'lcov'],
       reportOnFailure: true,
       include: ['src/**/*.ts'],
-      exclude: ['src/cli.ts', 'src/commands/start.ts', 'src/commands/status.ts'],
+      exclude: ['src/cli.ts', 'src/commands/start.ts'],
     },
   },
 });

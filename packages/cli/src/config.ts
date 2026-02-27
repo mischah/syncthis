@@ -7,6 +7,7 @@ export interface SyncthisConfig {
   branch: string;
   cron: string | null;
   interval: number | null;
+  daemonLabel?: string | null;
 }
 
 export interface CliFlags {
@@ -81,7 +82,17 @@ export function validateConfig(config: unknown): SyncthisConfig {
     }
   }
 
-  return { remote: raw.remote.trim(), branch, cron, interval };
+  let daemonLabel: string | null | undefined;
+  if (raw.daemonLabel !== undefined && raw.daemonLabel !== null) {
+    if (typeof raw.daemonLabel !== 'string') {
+      throw new Error('Invalid config: "daemonLabel" must be a string or null.');
+    }
+    daemonLabel = raw.daemonLabel;
+  } else if (raw.daemonLabel === null) {
+    daemonLabel = null;
+  }
+
+  return { remote: raw.remote.trim(), branch, cron, interval, daemonLabel };
 }
 
 export async function loadConfig(dirPath: string): Promise<SyncthisConfig> {
