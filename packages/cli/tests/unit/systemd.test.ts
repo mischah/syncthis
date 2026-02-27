@@ -115,6 +115,55 @@ describe('SystemdPlatform', () => {
     });
   });
 
+  describe('listAll()', () => {
+    it('parses systemctl output and returns DaemonInfo array', async () => {
+      mockExeca.mockResolvedValueOnce({
+        stdout: [
+          'syncthis-vault.service loaded active running syncthis vault',
+          'syncthis-notes.service loaded inactive dead syncthis notes',
+        ].join('\n'),
+      });
+      const result = await platform.listAll();
+      expect(result).toHaveLength(2);
+      expect(result[0]).toMatchObject({
+        serviceName: 'com.syncthis.vault',
+        label: 'vault',
+        state: 'running',
+      });
+      expect(result[1]).toMatchObject({
+        serviceName: 'com.syncthis.notes',
+        label: 'notes',
+        state: 'stopped',
+      });
+    });
+
+    it('returns empty array when output is empty', async () => {
+      mockExeca.mockResolvedValueOnce({ stdout: '' });
+      const result = await platform.listAll();
+      expect(result).toEqual([]);
+    });
+
+    it('returns empty array when systemctl throws', async () => {
+      mockExeca.mockRejectedValueOnce(new Error('systemctl not found'));
+      const result = await platform.listAll();
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('enableAutostart()', () => {
+    it('calls systemctl --user enable with the unit filename', async () => {
+      await platform.enableAutostart('com.syncthis.user-vault-notes');
+      expect(mockExeca).toHaveBeenCalledWith('systemctl', ['--user', 'enable', UNIT_FILENAME]);
+    });
+  });
+
+  describe('disableAutostart()', () => {
+    it('calls systemctl --user disable with the unit filename', async () => {
+      await platform.disableAutostart('com.syncthis.user-vault-notes');
+      expect(mockExeca).toHaveBeenCalledWith('systemctl', ['--user', 'disable', UNIT_FILENAME]);
+    });
+  });
+
   describe('checkLinger()', () => {
     it('returns true when linger is enabled', async () => {
       mockExeca.mockResolvedValueOnce({ stdout: 'Linger=yes' });

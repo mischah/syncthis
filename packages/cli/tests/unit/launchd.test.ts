@@ -110,6 +110,34 @@ describe('LaunchdPlatform', () => {
     });
   });
 
+  describe('enableAutostart()', () => {
+    it('unloads the plist, replaces RunAtLoad false with true, and reloads', async () => {
+      mockReadFile.mockResolvedValueOnce('<?xml version="1.0"?>\n<key>RunAtLoad</key>\n<false/>');
+      await platform.enableAutostart('com.syncthis.user-vault-notes');
+      expect(mockExeca).toHaveBeenCalledWith('launchctl', ['unload', PLIST_PATH]);
+      expect(mockWriteFile).toHaveBeenCalledWith(
+        PLIST_PATH,
+        expect.stringContaining('<true/>'),
+        'utf-8',
+      );
+      expect(mockExeca).toHaveBeenCalledWith('launchctl', ['load', PLIST_PATH]);
+    });
+  });
+
+  describe('disableAutostart()', () => {
+    it('unloads the plist, replaces RunAtLoad true with false, and reloads', async () => {
+      mockReadFile.mockResolvedValueOnce('<?xml version="1.0"?>\n<key>RunAtLoad</key>\n<true/>');
+      await platform.disableAutostart('com.syncthis.user-vault-notes');
+      expect(mockExeca).toHaveBeenCalledWith('launchctl', ['unload', PLIST_PATH]);
+      expect(mockWriteFile).toHaveBeenCalledWith(
+        PLIST_PATH,
+        expect.stringContaining('<false/>'),
+        'utf-8',
+      );
+      expect(mockExeca).toHaveBeenCalledWith('launchctl', ['load', PLIST_PATH]);
+    });
+  });
+
   describe('listAll()', () => {
     it('filters and parses launchctl list output for syncthis services', async () => {
       mockExeca.mockResolvedValueOnce({
