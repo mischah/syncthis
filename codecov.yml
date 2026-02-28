@@ -1,0 +1,19 @@
+codecov:
+  notify:
+    after_n_builds: 1  # only 1 upload (ubuntu-latest)
+
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 2%
+    patch:
+      default:
+        target: 70%
+
+ignore:
+  # already excluded in vitest.config.ts coverage settings,
+  # but Codecov doesn't pick up those excludes automatically
+  - "packages/cli/src/cli.ts"
+  - "packages/cli/src/commands/start.ts"
