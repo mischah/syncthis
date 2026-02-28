@@ -133,9 +133,15 @@ async function daemonStart(flags: DaemonFlags): Promise<void> {
     const pidInfo = finalStatus.pid !== undefined ? ` (PID: ${finalStatus.pid})` : '';
     console.log(`Daemon started${pidInfo}. Syncing: ${dirPath}`);
   } else {
-    console.warn(
-      `Warning: Daemon may not have started correctly.\n  Check logs: ${join(dirPath, '.syncthis', 'logs', 'syncthis.log')}`,
-    );
+    const logPath = join(dirPath, '.syncthis', 'logs', 'syncthis.log');
+    const stderrLog = join(dirPath, '.syncthis', 'logs', 'launchd-stderr.log');
+    let msg = `Warning: Daemon may not have started correctly.\n  Check logs: ${logPath}`;
+    if (process.platform === 'darwin') {
+      msg += `\n  System log: ${stderrLog}`;
+      msg += '\n\n  Hint: macOS may have blocked the background activity.';
+      msg += '\n  Approve it in: System Settings → General → Login Items → Allow in the Background';
+    }
+    console.warn(msg);
   }
 }
 
