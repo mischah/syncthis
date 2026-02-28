@@ -1,4 +1,3 @@
-import { realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { LaunchdPlatform } from './launchd.js';
 import { SystemdPlatform } from './systemd.js';
@@ -51,10 +50,5 @@ export function getPlatform(): DaemonPlatform {
 }
 
 export function getSyncthisBinary(): string {
-  const execPath = process.argv[1];
-  try {
-    return realpathSync(execPath);
-  } catch {
-    return resolve(execPath);
-  }
+  return resolve(process.argv[1]);
 }
