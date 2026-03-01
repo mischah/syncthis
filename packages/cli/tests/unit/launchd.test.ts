@@ -19,6 +19,7 @@ import { LaunchdPlatform } from '../../src/daemon/launchd.js';
 const BASE_CONFIG = {
   serviceName: 'com.syncthis.user-vault-notes',
   dirPath: '/home/user/vault-notes',
+  nodeExecutable: '/usr/local/bin/node',
   syncthisBinary: '/usr/local/bin/syncthis',
   autostart: false,
 };

@@ -17,6 +17,7 @@ import { SystemdPlatform } from '../../src/daemon/systemd.js';
 const BASE_CONFIG = {
   serviceName: 'com.syncthis.user-vault-notes',
   dirPath: '/home/user/vault-notes',
+  nodeExecutable: '/usr/local/bin/node',
   syncthisBinary: '/usr/local/bin/syncthis',
   autostart: false,
 };
@@ -42,7 +43,7 @@ describe('SystemdPlatform', () => {
       expect(mockWriteFile).toHaveBeenCalledWith(
         UNIT_PATH,
         expect.stringContaining(
-          'ExecStart=/usr/local/bin/syncthis start --path /home/user/vault-notes',
+          'ExecStart=/usr/local/bin/node /usr/local/bin/syncthis start --path /home/user/vault-notes',
         ),
         'utf-8',
       );

@@ -18,6 +18,7 @@ export interface DaemonInfo {
 export interface DaemonConfig {
   serviceName: string;
   dirPath: string;
+  nodeExecutable: string;
   syncthisBinary: string;
   cron?: string;
   interval?: number;
@@ -51,4 +52,8 @@ export function getPlatform(): DaemonPlatform {
 
 export function getSyncthisBinary(): string {
   return resolve(process.argv[1]);
+}
+
+export function getNodeBinary(): string {
+  return process.execPath;
 }

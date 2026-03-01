@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // --- Module mocks (hoisted) ---
 
 vi.mock('../../src/daemon/platform.js', () => ({
+  getNodeBinary: vi.fn().mockReturnValue('/usr/local/bin/node'),
   getPlatform: vi.fn(),
   getSyncthisBinary: vi.fn().mockReturnValue('/usr/local/bin/syncthis'),
 }));

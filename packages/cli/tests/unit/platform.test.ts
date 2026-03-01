@@ -10,7 +10,7 @@ vi.mock('../../src/daemon/systemd.js', () => ({
 }));
 
 import { LaunchdPlatform } from '../../src/daemon/launchd.js';
-import { getPlatform, getSyncthisBinary } from '../../src/daemon/platform.js';
+import { getNodeBinary, getPlatform, getSyncthisBinary } from '../../src/daemon/platform.js';
 import { SystemdPlatform } from '../../src/daemon/systemd.js';
 
 const originalPlatform = process.platform;
@@ -45,5 +45,13 @@ describe('getSyncthisBinary', () => {
   it('returns an absolute path', () => {
     const binary = getSyncthisBinary();
     expect(isAbsolute(binary)).toBe(true);
+  });
+});
+
+describe('getNodeBinary', () => {
+  it('returns an absolute path matching process.execPath', () => {
+    const nodeBin = getNodeBinary();
+    expect(nodeBin).toBe(process.execPath);
+    expect(isAbsolute(nodeBin)).toBe(true);
   });
 });
