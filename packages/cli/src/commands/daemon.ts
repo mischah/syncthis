@@ -100,7 +100,7 @@ async function daemonStart(flags: DaemonFlags): Promise<void> {
     cron: flags.cron,
     interval: flags.interval,
   });
-  const autostart = flags.enableAutostart ?? (await platform.isAutostartEnabled(serviceName));
+  const autostart = flags.enableAutostart ?? syncConfig.autostart ?? false;
 
   const daemonConfig: DaemonConfig = {
     serviceName,
@@ -118,7 +118,7 @@ async function daemonStart(flags: DaemonFlags): Promise<void> {
 
   const labelPart = serviceName.replace('com.syncthis.', '');
   try {
-    const configToWrite = { ...mergedConfig };
+    const configToWrite = { ...mergedConfig, autostart };
     if (!syncConfig.daemonLabel) {
       configToWrite.daemonLabel = labelPart;
     }

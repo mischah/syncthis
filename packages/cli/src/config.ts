@@ -8,6 +8,7 @@ export interface SyncthisConfig {
   cron: string | null;
   interval: number | null;
   daemonLabel?: string | null;
+  autostart?: boolean;
 }
 
 export interface CliFlags {
@@ -92,7 +93,15 @@ export function validateConfig(config: unknown): SyncthisConfig {
     daemonLabel = null;
   }
 
-  return { remote: raw.remote.trim(), branch, cron, interval, daemonLabel };
+  let autostart: boolean | undefined;
+  if (raw.autostart !== undefined) {
+    if (typeof raw.autostart !== 'boolean') {
+      throw new Error('Invalid config: "autostart" must be a boolean.');
+    }
+    autostart = raw.autostart;
+  }
+
+  return { remote: raw.remote.trim(), branch, cron, interval, daemonLabel, autostart };
 }
 
 export async function loadConfig(dirPath: string): Promise<SyncthisConfig> {

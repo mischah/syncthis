@@ -154,13 +154,12 @@ describe('daemon start', () => {
   });
 
   it('preserves autostart when --enable-autostart is not passed', async () => {
-    mockLoadConfig.mockResolvedValue({ ...baseConfig });
+    mockLoadConfig.mockResolvedValue({ ...baseConfig, autostart: true });
     const platform = makeMockPlatform({
       status: vi
         .fn()
         .mockResolvedValueOnce({ state: 'stopped' } as DaemonStatus)
         .mockResolvedValueOnce({ state: 'running', pid: 1 } as DaemonStatus),
-      isAutostartEnabled: vi.fn().mockResolvedValue(true),
     });
     mockGetPlatform.mockReturnValue(platform);
 
