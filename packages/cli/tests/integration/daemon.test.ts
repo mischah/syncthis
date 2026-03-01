@@ -164,7 +164,8 @@ describe('daemon start', () => {
     mockGetPlatform.mockReturnValue(platform);
 
     vi.useFakeTimers();
-    const promise = handleDaemon('start', { path: tempDir });
+    // enableAutostart: false simulates real CLI behavior (meow default: false)
+    const promise = handleDaemon('start', { path: tempDir, enableAutostart: false });
     await vi.runAllTimersAsync();
     await promise;
 
