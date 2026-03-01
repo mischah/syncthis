@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // --- Module mocks (hoisted) ---
 
 vi.mock('../../src/daemon/platform.js', () => ({
-  getNodeBinary: vi.fn().mockReturnValue('/usr/local/bin/node'),
+  getNodeBinDir: vi.fn().mockReturnValue('/usr/local/bin'),
   getPlatform: vi.fn(),
   getSyncthisBinary: vi.fn().mockReturnValue('/usr/local/bin/syncthis'),
 }));
@@ -37,6 +37,7 @@ function makeMockPlatform(overrides: Partial<DaemonPlatform> = {}): DaemonPlatfo
     listAll: vi.fn().mockResolvedValue([] as DaemonInfo[]),
     enableAutostart: vi.fn().mockResolvedValue(undefined),
     disableAutostart: vi.fn().mockResolvedValue(undefined),
+    isAutostartEnabled: vi.fn().mockResolvedValue(false),
     ...overrides,
   };
 }
@@ -226,7 +227,9 @@ describe('daemon status', () => {
         label: 'user-vault',
         dirPath: '/home/user/vault',
         state: 'running',
+        pid: 1234,
         autostart: false,
+        schedule: '*/5 * * * *',
       },
     ];
     const platform = makeMockPlatform({

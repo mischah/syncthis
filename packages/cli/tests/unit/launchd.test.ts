@@ -19,13 +19,32 @@ import { LaunchdPlatform } from '../../src/daemon/launchd.js';
 const BASE_CONFIG = {
   serviceName: 'com.syncthis.user-vault-notes',
   dirPath: '/home/user/vault-notes',
-  nodeExecutable: '/usr/local/bin/node',
+  nodeBinDir: '/usr/local/bin',
   syncthisBinary: '/usr/local/bin/syncthis',
   autostart: false,
 };
 
 const PLIST_DIR = join(homedir(), 'Library', 'LaunchAgents');
 const PLIST_PATH = join(PLIST_DIR, 'com.syncthis.user-vault-notes.plist');
+
+const SAMPLE_PLIST = `<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+  <key>WorkingDirectory</key>
+  <string>/home/user/vault-notes</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/local/bin/syncthis</string>
+    <string>start</string>
+    <string>--path</string>
+    <string>/home/user/vault-notes</string>
+    <string>--cron</string>
+    <string>*/5 * * * *</string>
+  </array>
+</dict>
+</plist>`;
 
 describe('LaunchdPlatform', () => {
   let platform: LaunchdPlatform;
@@ -139,8 +158,22 @@ describe('LaunchdPlatform', () => {
     });
   });
 
+  describe('isAutostartEnabled()', () => {
+    it('returns true when RunAtLoad is true in the plist', async () => {
+      mockReadFile.mockResolvedValueOnce(SAMPLE_PLIST);
+      const result = await platform.isAutostartEnabled('com.syncthis.user-vault-notes');
+      expect(result).toBe(true);
+    });
+
+    it('returns false when plist cannot be read', async () => {
+      mockReadFile.mockRejectedValueOnce(new Error('ENOENT'));
+      const result = await platform.isAutostartEnabled('com.syncthis.user-vault-notes');
+      expect(result).toBe(false);
+    });
+  });
+
   describe('listAll()', () => {
-    it('filters and parses launchctl list output for syncthis services', async () => {
+    it('extracts dirPath, autostart, and schedule from plist files', async () => {
       mockExeca.mockResolvedValueOnce({
         stdout: [
           'PID\tStatus\tLabel',
@@ -149,13 +182,28 @@ describe('LaunchdPlatform', () => {
           '9876\t0\tcom.apple.somethingelse',
         ].join('\n'),
       });
+      // First plist read (user-vault-notes)
+      mockReadFile.mockResolvedValueOnce(SAMPLE_PLIST);
+      // Second plist read (work-notes) — no file
+      mockReadFile.mockRejectedValueOnce(new Error('ENOENT'));
+
       const result = await platform.listAll();
       expect(result).toHaveLength(2);
       expect(result[0]).toMatchObject({
         serviceName: 'com.syncthis.user-vault-notes',
         state: 'running',
+        pid: 12345,
+        dirPath: '/home/user/vault-notes',
+        autostart: true,
+        schedule: '*/5 * * * *',
       });
-      expect(result[1]).toMatchObject({ serviceName: 'com.syncthis.work-notes', state: 'stopped' });
+      expect(result[1]).toMatchObject({
+        serviceName: 'com.syncthis.work-notes',
+        state: 'stopped',
+        dirPath: '',
+        autostart: false,
+        schedule: '',
+      });
     });
   });
 });

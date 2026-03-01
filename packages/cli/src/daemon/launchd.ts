@@ -48,22 +48,40 @@ export class LaunchdPlatform implements DaemonPlatform {
 
   async listAll(): Promise<DaemonInfo[]> {
     const { stdout } = await execa('launchctl', ['list']);
-    return stdout
-      .split('\n')
-      .filter((line) => line.includes('com.syncthis'))
-      .map((line) => {
-        const parts = line.trim().split(/\t/);
-        const pid = parts[0];
-        const serviceName = parts[2] ?? '';
-        const label = serviceName.replace('com.syncthis.', '');
-        return {
-          serviceName,
-          label,
-          dirPath: '',
-          state: pid !== '-' ? ('running' as const) : ('stopped' as const),
-          autostart: false,
-        };
+    const lines = stdout.split('\n').filter((line) => line.includes('com.syncthis'));
+
+    const results: DaemonInfo[] = [];
+    for (const line of lines) {
+      const parts = line.trim().split(/\t/);
+      const pidStr = parts[0];
+      const serviceName = parts[2] ?? '';
+      const label = serviceName.replace('com.syncthis.', '');
+      const pid = pidStr !== '-' ? Number.parseInt(pidStr, 10) : undefined;
+
+      let dirPath = '';
+      let autostart = false;
+      let schedule = '';
+
+      try {
+        const content = await readFile(this.plistPath(serviceName), 'utf-8');
+        dirPath = extractPlistValue(content, 'WorkingDirectory');
+        autostart = extractPlistBoolean(content, 'RunAtLoad');
+        schedule = extractScheduleFromArgs(content);
+      } catch {
+        // plist file not readable
+      }
+
+      results.push({
+        serviceName,
+        label,
+        dirPath,
+        state: pidStr !== '-' ? 'running' : 'stopped',
+        pid,
+        autostart,
+        schedule,
       });
+    }
+    return results;
   }
 
   async enableAutostart(serviceName: string): Promise<void> {
@@ -83,4 +101,35 @@ export class LaunchdPlatform implements DaemonPlatform {
     await writeFile(plistPath, modified, 'utf-8');
     await execa('launchctl', ['load', plistPath]);
   }
+
+  async isAutostartEnabled(serviceName: string): Promise<boolean> {
+    try {
+      const content = await readFile(this.plistPath(serviceName), 'utf-8');
+      return extractPlistBoolean(content, 'RunAtLoad');
+    } catch {
+      return false;
+    }
+  }
+}
+
+function extractPlistValue(plist: string, key: string): string {
+  const regex = new RegExp(`<key>${key}</key>\\s*<string>([^<]*)</string>`);
+  const match = plist.match(regex);
+  return match?.[1] ?? '';
+}
+
+function extractPlistBoolean(plist: string, key: string): boolean {
+  const regex = new RegExp(`<key>${key}</key>\\s*<(true|false)/>`);
+  const match = plist.match(regex);
+  return match?.[1] === 'true';
+}
+
+function extractScheduleFromArgs(plist: string): string {
+  const cronMatch = plist.match(/<string>--cron<\/string>\s*<string>([^<]*)<\/string>/);
+  if (cronMatch) return cronMatch[1];
+
+  const intervalMatch = plist.match(/<string>--interval<\/string>\s*<string>(\d+)<\/string>/);
+  if (intervalMatch) return `every ${intervalMatch[1]}s`;
+
+  return '';
 }

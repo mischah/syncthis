@@ -1,4 +1,4 @@
-import { unlink, writeFile } from 'node:fs/promises';
+import { readFile, unlink, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { execa } from 'execa';
@@ -83,22 +83,52 @@ export class SystemdPlatform implements DaemonPlatform {
         '--no-pager',
       ]);
       if (!stdout.trim()) return [];
-      return stdout
-        .split('\n')
-        .filter(Boolean)
-        .map((line) => {
-          const parts = line.trim().split(/\s+/);
-          const unitFile = parts[0] ?? '';
-          const activeState = parts[2] ?? '';
-          const label = unitFile.replace('syncthis-', '').replace('.service', '');
-          return {
-            serviceName: `com.syncthis.${label}`,
-            label,
-            dirPath: '',
-            state: activeState === 'active' ? ('running' as const) : ('stopped' as const),
-            autostart: false,
-          };
+
+      const results: DaemonInfo[] = [];
+      for (const line of stdout.split('\n').filter(Boolean)) {
+        const parts = line.trim().split(/\s+/);
+        const unitFile = parts[0] ?? '';
+        const activeState = parts[2] ?? '';
+        const label = unitFile.replace('syncthis-', '').replace('.service', '');
+        const serviceName = `com.syncthis.${label}`;
+        const filename = this.unitFilename(serviceName);
+
+        let dirPath = '';
+        let schedule = '';
+        let pid: number | undefined;
+
+        try {
+          const content = await readFile(this.unitPath(serviceName), 'utf-8');
+          const wdMatch = content.match(/^WorkingDirectory=(.+)$/m);
+          dirPath = wdMatch?.[1] ?? '';
+          schedule = extractScheduleFromExecStart(content);
+        } catch {
+          // unit file not readable
+        }
+
+        if (activeState === 'active') {
+          try {
+            const { stdout: statusOut } = await execa('systemctl', ['--user', 'status', filename]);
+            const pidMatch = statusOut.match(/Main PID:\s*(\d+)/);
+            if (pidMatch) pid = Number.parseInt(pidMatch[1], 10);
+          } catch {
+            // status not available
+          }
+        }
+
+        const autostart = await this.isAutostartEnabled(serviceName);
+
+        results.push({
+          serviceName,
+          label,
+          dirPath,
+          state: activeState === 'active' ? 'running' : 'stopped',
+          pid,
+          autostart,
+          schedule,
         });
+      }
+      return results;
     } catch {
       return [];
     }
@@ -112,6 +142,16 @@ export class SystemdPlatform implements DaemonPlatform {
   async disableAutostart(serviceName: string): Promise<void> {
     const filename = this.unitFilename(serviceName);
     await execa('systemctl', ['--user', 'disable', filename]);
+  }
+
+  async isAutostartEnabled(serviceName: string): Promise<boolean> {
+    const filename = this.unitFilename(serviceName);
+    try {
+      const { stdout } = await execa('systemctl', ['--user', 'is-enabled', filename]);
+      return stdout.trim() === 'enabled';
+    } catch {
+      return false;
+    }
   }
 
   async checkLinger(): Promise<boolean> {
@@ -130,4 +170,18 @@ export class SystemdPlatform implements DaemonPlatform {
       return false;
     }
   }
+}
+
+function extractScheduleFromExecStart(unit: string): string {
+  const execMatch = unit.match(/^ExecStart=(.+)$/m);
+  if (!execMatch) return '';
+  const execLine = execMatch[1];
+
+  const cronMatch = execLine.match(/--cron\s+"?([^"]+)"?(?:\s|$)/);
+  if (cronMatch) return cronMatch[1];
+
+  const intervalMatch = execLine.match(/--interval\s+(\d+)/);
+  if (intervalMatch) return `every ${intervalMatch[1]}s`;
+
+  return '';
 }

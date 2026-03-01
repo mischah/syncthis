@@ -6,9 +6,11 @@ const mockExeca = vi.hoisted(() => vi.fn().mockResolvedValue({ stdout: '', stder
 vi.mock('execa', () => ({ execa: mockExeca }));
 
 const mockWriteFile = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+const mockReadFile = vi.hoisted(() => vi.fn().mockResolvedValue(''));
 const mockUnlink = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 vi.mock('node:fs/promises', () => ({
   writeFile: mockWriteFile,
+  readFile: mockReadFile,
   unlink: mockUnlink,
 }));
 
@@ -17,7 +19,7 @@ import { SystemdPlatform } from '../../src/daemon/systemd.js';
 const BASE_CONFIG = {
   serviceName: 'com.syncthis.user-vault-notes',
   dirPath: '/home/user/vault-notes',
-  nodeExecutable: '/usr/local/bin/node',
+  nodeBinDir: '/usr/local/bin',
   syncthisBinary: '/usr/local/bin/syncthis',
   autostart: false,
 };
@@ -25,6 +27,19 @@ const BASE_CONFIG = {
 const UNIT_DIR = join(homedir(), '.config', 'systemd', 'user');
 const UNIT_PATH = join(UNIT_DIR, 'syncthis-user-vault-notes.service');
 const UNIT_FILENAME = 'syncthis-user-vault-notes.service';
+
+const SAMPLE_UNIT = `[Unit]
+Description=syncthis sync daemon for /home/user/vault-notes
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/syncthis start --path /home/user/vault-notes --cron "*/5 * * * *"
+WorkingDirectory=/home/user/vault-notes
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=default.target
+`;
 
 describe('SystemdPlatform', () => {
   let platform: SystemdPlatform;
@@ -34,6 +49,7 @@ describe('SystemdPlatform', () => {
     vi.clearAllMocks();
     mockExeca.mockResolvedValue({ stdout: '', stderr: '' });
     mockWriteFile.mockResolvedValue(undefined);
+    mockReadFile.mockResolvedValue('');
     mockUnlink.mockResolvedValue(undefined);
   });
 
@@ -43,7 +59,7 @@ describe('SystemdPlatform', () => {
       expect(mockWriteFile).toHaveBeenCalledWith(
         UNIT_PATH,
         expect.stringContaining(
-          'ExecStart=/usr/local/bin/node /usr/local/bin/syncthis start --path /home/user/vault-notes',
+          'ExecStart=/usr/local/bin/syncthis start --path /home/user/vault-notes',
         ),
         'utf-8',
       );
@@ -117,24 +133,30 @@ describe('SystemdPlatform', () => {
   });
 
   describe('listAll()', () => {
-    it('parses systemctl output and returns DaemonInfo array', async () => {
+    it('extracts dirPath, schedule, and autostart from unit files', async () => {
+      // list-units call
       mockExeca.mockResolvedValueOnce({
-        stdout: [
-          'syncthis-vault.service loaded active running syncthis vault',
-          'syncthis-notes.service loaded inactive dead syncthis notes',
-        ].join('\n'),
+        stdout: 'syncthis-vault.service loaded active running syncthis vault',
       });
+      // unit file read
+      mockReadFile.mockResolvedValueOnce(SAMPLE_UNIT);
+      // systemctl status for PID
+      mockExeca.mockResolvedValueOnce({
+        stdout: 'Active: active (running)\n   Main PID: 5678 (node)',
+      });
+      // is-enabled check
+      mockExeca.mockResolvedValueOnce({ stdout: 'enabled' });
+
       const result = await platform.listAll();
-      expect(result).toHaveLength(2);
+      expect(result).toHaveLength(1);
       expect(result[0]).toMatchObject({
         serviceName: 'com.syncthis.vault',
         label: 'vault',
         state: 'running',
-      });
-      expect(result[1]).toMatchObject({
-        serviceName: 'com.syncthis.notes',
-        label: 'notes',
-        state: 'stopped',
+        pid: 5678,
+        dirPath: '/home/user/vault-notes',
+        autostart: true,
+        schedule: '*/5 * * * *',
       });
     });
 
@@ -162,6 +184,26 @@ describe('SystemdPlatform', () => {
     it('calls systemctl --user disable with the unit filename', async () => {
       await platform.disableAutostart('com.syncthis.user-vault-notes');
       expect(mockExeca).toHaveBeenCalledWith('systemctl', ['--user', 'disable', UNIT_FILENAME]);
+    });
+  });
+
+  describe('isAutostartEnabled()', () => {
+    it('returns true when systemctl is-enabled returns enabled', async () => {
+      mockExeca.mockResolvedValueOnce({ stdout: 'enabled' });
+      const result = await platform.isAutostartEnabled('com.syncthis.user-vault-notes');
+      expect(result).toBe(true);
+    });
+
+    it('returns false when systemctl is-enabled returns disabled', async () => {
+      mockExeca.mockResolvedValueOnce({ stdout: 'disabled' });
+      const result = await platform.isAutostartEnabled('com.syncthis.user-vault-notes');
+      expect(result).toBe(false);
+    });
+
+    it('returns false when systemctl is-enabled throws', async () => {
+      mockExeca.mockRejectedValueOnce(new Error('not found'));
+      const result = await platform.isAutostartEnabled('com.syncthis.user-vault-notes');
+      expect(result).toBe(false);
     });
   });
 

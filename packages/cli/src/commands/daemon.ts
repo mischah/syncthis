@@ -4,8 +4,9 @@ import { join } from 'node:path';
 import { loadConfig, writeConfig } from '../config.js';
 import {
   type DaemonConfig,
+  type DaemonInfo,
   type DaemonPlatform,
-  getNodeBinary,
+  getNodeBinDir,
   getPlatform,
   getSyncthisBinary,
 } from '../daemon/platform.js';
@@ -101,7 +102,7 @@ async function daemonStart(flags: DaemonFlags): Promise<void> {
   const daemonConfig: DaemonConfig = {
     serviceName,
     dirPath,
-    nodeExecutable: getNodeBinary(),
+    nodeBinDir: getNodeBinDir(),
     syncthisBinary: getSyncthisBinary(),
     cron,
     interval,
@@ -189,13 +190,14 @@ async function daemonStatus(flags: DaemonFlags): Promise<void> {
         ? `running (PID ${serviceStatus.pid})`
         : serviceStatus.state;
     const logPath = join(flags.path, '.syncthis', 'logs', 'syncthis.log');
+    const autostart = await platform.isAutostartEnabled(serviceName);
 
     console.log(`Daemon: ${label}`);
     console.log(`  Status:      ${statusStr}`);
     console.log(`  Path:        ${flags.path}`);
     console.log(`  Service:     ${serviceName}`);
     console.log(`  Schedule:    ${scheduleStr}`);
-    console.log('  Autostart:   off');
+    console.log(`  Autostart:   ${autostart ? 'on' : 'off'}`);
     console.log(`  Log:         ${logPath}`);
   } else {
     const daemons = await platform.listAll();
@@ -205,15 +207,29 @@ async function daemonStatus(flags: DaemonFlags): Promise<void> {
       return;
     }
 
-    console.log('syncthis daemons:\n');
-    for (const d of daemons) {
-      const icon = d.state === 'running' ? '●' : '○';
-      const autostartStr = d.autostart ? 'on' : 'off';
-      const pathStr = d.dirPath || '(unknown)';
-      console.log(
-        `  ${icon} ${d.label.padEnd(16)} ${d.state.padEnd(10)} ${pathStr.padEnd(30)} autostart: ${autostartStr}`,
-      );
-    }
+    printDaemonTable(daemons);
+  }
+}
+
+function printDaemonTable(daemons: DaemonInfo[]): void {
+  const headers = ['Label', 'Status', 'PID', 'Schedule', 'Autostart', 'Path'];
+
+  const rows = daemons.map((d) => [
+    d.label,
+    d.state,
+    d.pid !== undefined ? String(d.pid) : '-',
+    d.schedule || '-',
+    d.autostart ? 'on' : 'off',
+    d.dirPath || '(unknown)',
+  ]);
+
+  const widths = headers.map((h, i) => Math.max(h.length, ...rows.map((r) => r[i].length)));
+
+  const header = headers.map((h, i) => h.padEnd(widths[i])).join('  ');
+  console.log(header);
+
+  for (const row of rows) {
+    console.log(row.map((cell, i) => cell.padEnd(widths[i])).join('  '));
   }
 }
 
