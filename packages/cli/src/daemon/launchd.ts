@@ -15,6 +15,11 @@ export class LaunchdPlatform implements DaemonPlatform {
   async install(config: DaemonConfig): Promise<void> {
     const plist = generatePlist(config);
     const plistPath = this.plistPath(config.serviceName);
+    try {
+      await execa('launchctl', ['unload', plistPath]);
+    } catch {
+      // Not loaded yet — ignore
+    }
     await writeFile(plistPath, plist, 'utf-8');
     await execa('launchctl', ['load', plistPath]);
   }

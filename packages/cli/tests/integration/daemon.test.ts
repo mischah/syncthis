@@ -103,6 +103,26 @@ describe('daemon start', () => {
     expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Daemon started'));
   });
 
+  it('reinstalls and starts when service is stopped (e.g. config changed)', async () => {
+    mockLoadConfig.mockResolvedValue({ ...baseConfig });
+    const platform = makeMockPlatform({
+      status: vi
+        .fn()
+        .mockResolvedValueOnce({ state: 'stopped' } as DaemonStatus)
+        .mockResolvedValueOnce({ state: 'running', pid: 5678 } as DaemonStatus),
+    });
+    mockGetPlatform.mockReturnValue(platform);
+
+    vi.useFakeTimers();
+    const promise = handleDaemon('start', { path: tempDir, interval: 10 });
+    await vi.runAllTimersAsync();
+    await promise;
+
+    expect(platform.install).toHaveBeenCalledOnce();
+    expect(platform.start).toHaveBeenCalledOnce();
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Daemon started'));
+  });
+
   it('prints Info message and skips install when already running', async () => {
     mockLoadConfig.mockResolvedValue({ ...baseConfig });
     const platform = makeMockPlatform({
