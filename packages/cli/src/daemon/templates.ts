@@ -1,7 +1,7 @@
 import type { DaemonConfig } from './platform.js';
 
 function buildProgramArguments(config: DaemonConfig): string[] {
-  const args = [config.syncthisBinary, 'start', '--path', config.dirPath];
+  const args = [config.nodeExecutable, config.syncthisBinary, 'start', '--path', config.dirPath];
 
   if (config.cron !== undefined) {
     args.push('--cron', config.cron);

@@ -5,6 +5,7 @@ import { loadConfig, writeConfig } from '../config.js';
 import {
   type DaemonConfig,
   type DaemonPlatform,
+  getNodeBinary,
   getPlatform,
   getSyncthisBinary,
 } from '../daemon/platform.js';
@@ -100,6 +101,7 @@ async function daemonStart(flags: DaemonFlags): Promise<void> {
   const daemonConfig: DaemonConfig = {
     serviceName,
     dirPath,
+    nodeExecutable: getNodeBinary(),
     syncthisBinary: getSyncthisBinary(),
     cron,
     interval,

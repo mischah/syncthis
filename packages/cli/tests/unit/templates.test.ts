@@ -5,6 +5,7 @@ import { generatePlist, generateSystemdUnit } from '../../src/daemon/templates.j
 const BASE_CONFIG: DaemonConfig = {
   serviceName: 'com.syncthis.user-vault-notes',
   dirPath: '/home/user/vault-notes',
+  nodeExecutable: '/usr/local/bin/node',
   syncthisBinary: '/usr/local/bin/syncthis',
   autostart: false,
 };
@@ -15,8 +16,9 @@ describe('generatePlist', () => {
     expect(plist).toContain('<string>com.syncthis.user-vault-notes</string>');
   });
 
-  it('contains correct ProgramArguments (syncthisBinary, start, --path, dirPath)', () => {
+  it('contains correct ProgramArguments (nodeExecutable, syncthisBinary, start, --path, dirPath)', () => {
     const plist = generatePlist(BASE_CONFIG);
+    expect(plist).toContain('<string>/usr/local/bin/node</string>');
     expect(plist).toContain('<string>/usr/local/bin/syncthis</string>');
     expect(plist).toContain('<string>start</string>');
     expect(plist).toContain('<string>--path</string>');
@@ -71,9 +73,11 @@ describe('generatePlist', () => {
 });
 
 describe('generateSystemdUnit', () => {
-  it('contains correct ExecStart with binary, start, --path, and dirPath', () => {
+  it('contains correct ExecStart with node, binary, start, --path, and dirPath', () => {
     const unit = generateSystemdUnit(BASE_CONFIG);
-    expect(unit).toContain('ExecStart=/usr/local/bin/syncthis start --path /home/user/vault-notes');
+    expect(unit).toContain(
+      'ExecStart=/usr/local/bin/node /usr/local/bin/syncthis start --path /home/user/vault-notes',
+    );
   });
 
   it('contains Restart=on-failure and RestartSec=10', () => {
