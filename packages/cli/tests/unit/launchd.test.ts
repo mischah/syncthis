@@ -68,8 +68,20 @@ describe('LaunchdPlatform', () => {
       );
     });
 
+    it('tries to unload existing plist before writing', async () => {
+      await platform.install(BASE_CONFIG);
+      expect(mockExeca).toHaveBeenCalledWith('launchctl', ['unload', PLIST_PATH]);
+    });
+
     it('calls launchctl load with the plist path', async () => {
       await platform.install(BASE_CONFIG);
+      expect(mockExeca).toHaveBeenCalledWith('launchctl', ['load', PLIST_PATH]);
+    });
+
+    it('succeeds even if unload fails (not yet loaded)', async () => {
+      mockExeca.mockRejectedValueOnce(new Error('not loaded'));
+      await platform.install(BASE_CONFIG);
+      expect(mockWriteFile).toHaveBeenCalled();
       expect(mockExeca).toHaveBeenCalledWith('launchctl', ['load', PLIST_PATH]);
     });
   });

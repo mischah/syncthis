@@ -110,10 +110,7 @@ async function daemonStart(flags: DaemonFlags): Promise<void> {
     autostart: flags.enableAutostart ?? false,
   };
 
-  if (currentStatus.state === 'not-installed') {
-    await platform.install(daemonConfig);
-  }
-
+  await platform.install(daemonConfig);
   await platform.start(serviceName);
 
   if (!syncConfig.daemonLabel) {
