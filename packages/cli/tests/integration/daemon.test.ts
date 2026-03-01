@@ -11,10 +11,14 @@ vi.mock('../../src/daemon/platform.js', () => ({
   getSyncthisBinary: vi.fn().mockReturnValue('/usr/local/bin/syncthis'),
 }));
 
-vi.mock('../../src/config.js', () => ({
-  loadConfig: vi.fn(),
-  writeConfig: vi.fn().mockResolvedValue(undefined),
-}));
+vi.mock('../../src/config.js', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../../src/config.js')>();
+  return {
+    loadConfig: vi.fn(),
+    writeConfig: vi.fn().mockResolvedValue(undefined),
+    mergeWithFlags: original.mergeWithFlags,
+  };
+});
 
 import { handleDaemon } from '../../src/commands/daemon.js';
 import { loadConfig, writeConfig } from '../../src/config.js';
@@ -123,7 +127,10 @@ describe('daemon start', () => {
       expect.objectContaining({ interval: 10, cron: undefined }),
     );
     expect(platform.start).toHaveBeenCalledOnce();
-    expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Daemon started'));
+    expect(mockWriteConfig).toHaveBeenCalledWith(
+      tempDir,
+      expect.objectContaining({ interval: 10, cron: null }),
+    );
   });
 
   it('--cron flag overrides config interval', async () => {
@@ -144,6 +151,26 @@ describe('daemon start', () => {
     expect(platform.install).toHaveBeenCalledWith(
       expect.objectContaining({ cron: '*/2 * * * *', interval: undefined }),
     );
+  });
+
+  it('preserves autostart when --enable-autostart is not passed', async () => {
+    mockLoadConfig.mockResolvedValue({ ...baseConfig });
+    const platform = makeMockPlatform({
+      status: vi
+        .fn()
+        .mockResolvedValueOnce({ state: 'stopped' } as DaemonStatus)
+        .mockResolvedValueOnce({ state: 'running', pid: 1 } as DaemonStatus),
+      isAutostartEnabled: vi.fn().mockResolvedValue(true),
+    });
+    mockGetPlatform.mockReturnValue(platform);
+
+    vi.useFakeTimers();
+    const promise = handleDaemon('start', { path: tempDir });
+    await vi.runAllTimersAsync();
+    await promise;
+
+    expect(platform.install).toHaveBeenCalledWith(expect.objectContaining({ autostart: true }));
+    expect(platform.enableAutostart).toHaveBeenCalledOnce();
   });
 
   it('prints Info message and skips install when already running', async () => {

@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { loadConfig, writeConfig } from '../config.js';
+import { loadConfig, mergeWithFlags, writeConfig } from '../config.js';
 import {
   type DaemonConfig,
   type DaemonInfo,
@@ -96,35 +96,38 @@ async function daemonStart(flags: DaemonFlags): Promise<void> {
     return;
   }
 
-  const cron =
-    flags.interval !== undefined ? undefined : (flags.cron ?? syncConfig.cron ?? undefined);
-  const interval =
-    flags.cron !== undefined ? undefined : (flags.interval ?? syncConfig.interval ?? undefined);
+  const mergedConfig = mergeWithFlags(syncConfig, {
+    cron: flags.cron,
+    interval: flags.interval,
+  });
+  const autostart = flags.enableAutostart ?? (await platform.isAutostartEnabled(serviceName));
 
   const daemonConfig: DaemonConfig = {
     serviceName,
     dirPath,
     nodeBinDir: getNodeBinDir(),
     syncthisBinary: getSyncthisBinary(),
-    cron,
-    interval,
+    cron: mergedConfig.cron ?? undefined,
+    interval: mergedConfig.interval ?? undefined,
     logLevel: flags.logLevel,
-    autostart: flags.enableAutostart ?? false,
+    autostart,
   };
 
   await platform.install(daemonConfig);
   await platform.start(serviceName);
 
-  if (!syncConfig.daemonLabel) {
-    const labelPart = serviceName.replace('com.syncthis.', '');
-    try {
-      await writeConfig(dirPath, { ...syncConfig, daemonLabel: labelPart });
-    } catch {
-      // Non-fatal: config write failed
+  const labelPart = serviceName.replace('com.syncthis.', '');
+  try {
+    const configToWrite = { ...mergedConfig };
+    if (!syncConfig.daemonLabel) {
+      configToWrite.daemonLabel = labelPart;
     }
+    await writeConfig(dirPath, configToWrite);
+  } catch {
+    // Non-fatal: config write failed
   }
 
-  if (flags.enableAutostart) {
+  if (autostart) {
     await platform.enableAutostart(serviceName);
   }
 
