@@ -100,7 +100,7 @@ async function daemonStart(flags: DaemonFlags): Promise<void> {
     cron: flags.cron,
     interval: flags.interval,
   });
-  const autostart = flags.enableAutostart ?? syncConfig.autostart ?? false;
+  const autostart = flags.enableAutostart === true || (syncConfig.autostart ?? false);
 
   const daemonConfig: DaemonConfig = {
     serviceName,
