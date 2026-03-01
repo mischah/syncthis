@@ -5,7 +5,7 @@ import { generatePlist, generateSystemdUnit } from '../../src/daemon/templates.j
 const BASE_CONFIG: DaemonConfig = {
   serviceName: 'com.syncthis.user-vault-notes',
   dirPath: '/home/user/vault-notes',
-  nodeExecutable: '/usr/local/bin/node',
+  nodeBinDir: '/usr/local/bin',
   syncthisBinary: '/usr/local/bin/syncthis',
   autostart: false,
 };
@@ -16,13 +16,27 @@ describe('generatePlist', () => {
     expect(plist).toContain('<string>com.syncthis.user-vault-notes</string>');
   });
 
-  it('contains correct ProgramArguments (nodeExecutable, syncthisBinary, start, --path, dirPath)', () => {
+  it('contains correct ProgramArguments (syncthisBinary, start, --path, dirPath)', () => {
     const plist = generatePlist(BASE_CONFIG);
-    expect(plist).toContain('<string>/usr/local/bin/node</string>');
     expect(plist).toContain('<string>/usr/local/bin/syncthis</string>');
     expect(plist).toContain('<string>start</string>');
     expect(plist).toContain('<string>--path</string>');
     expect(plist).toContain('<string>/home/user/vault-notes</string>');
+  });
+
+  it('does not contain node binary in ProgramArguments', () => {
+    const config = { ...BASE_CONFIG, nodeBinDir: '/home/user/.nvm/versions/node/v22/bin' };
+    const plist = generatePlist(config);
+    // node should NOT be a program argument
+    expect(plist).not.toContain('<string>/home/user/.nvm/versions/node/v22/bin/node</string>');
+  });
+
+  it('contains EnvironmentVariables with PATH including nodeBinDir', () => {
+    const config = { ...BASE_CONFIG, nodeBinDir: '/home/user/.nvm/versions/node/v22/bin' };
+    const plist = generatePlist(config);
+    expect(plist).toContain('<key>EnvironmentVariables</key>');
+    expect(plist).toContain('<key>PATH</key>');
+    expect(plist).toContain('/home/user/.nvm/versions/node/v22/bin:');
   });
 
   it('RunAtLoad is <false/> when autostart is false', () => {
@@ -73,11 +87,21 @@ describe('generatePlist', () => {
 });
 
 describe('generateSystemdUnit', () => {
-  it('contains correct ExecStart with node, binary, start, --path, and dirPath', () => {
+  it('contains correct ExecStart with binary, start, --path, and dirPath', () => {
     const unit = generateSystemdUnit(BASE_CONFIG);
-    expect(unit).toContain(
-      'ExecStart=/usr/local/bin/node /usr/local/bin/syncthis start --path /home/user/vault-notes',
-    );
+    expect(unit).toContain('ExecStart=/usr/local/bin/syncthis start --path /home/user/vault-notes');
+  });
+
+  it('does not contain node binary in ExecStart', () => {
+    const config = { ...BASE_CONFIG, nodeBinDir: '/home/user/.nvm/versions/node/v22/bin' };
+    const unit = generateSystemdUnit(config);
+    expect(unit).not.toContain('/home/user/.nvm/versions/node/v22/bin/node');
+  });
+
+  it('contains Environment=PATH with nodeBinDir', () => {
+    const config = { ...BASE_CONFIG, nodeBinDir: '/home/user/.nvm/versions/node/v22/bin' };
+    const unit = generateSystemdUnit(config);
+    expect(unit).toContain('Environment=PATH=/home/user/.nvm/versions/node/v22/bin:');
   });
 
   it('contains Restart=on-failure and RestartSec=10', () => {

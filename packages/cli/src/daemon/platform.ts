@@ -1,4 +1,4 @@
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { LaunchdPlatform } from './launchd.js';
 import { SystemdPlatform } from './systemd.js';
 
@@ -12,13 +12,15 @@ export interface DaemonInfo {
   label: string;
   dirPath: string;
   state: 'running' | 'stopped';
+  pid?: number;
   autostart: boolean;
+  schedule: string;
 }
 
 export interface DaemonConfig {
   serviceName: string;
   dirPath: string;
-  nodeExecutable: string;
+  nodeBinDir: string;
   syncthisBinary: string;
   cron?: string;
   interval?: number;
@@ -35,6 +37,7 @@ export interface DaemonPlatform {
   listAll(): Promise<DaemonInfo[]>;
   enableAutostart(serviceName: string): Promise<void>;
   disableAutostart(serviceName: string): Promise<void>;
+  isAutostartEnabled(serviceName: string): Promise<boolean>;
 }
 
 export function getPlatform(): DaemonPlatform {
@@ -54,6 +57,6 @@ export function getSyncthisBinary(): string {
   return resolve(process.argv[1]);
 }
 
-export function getNodeBinary(): string {
-  return process.execPath;
+export function getNodeBinDir(): string {
+  return dirname(process.execPath);
 }
