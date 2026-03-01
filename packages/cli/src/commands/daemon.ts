@@ -96,8 +96,10 @@ async function daemonStart(flags: DaemonFlags): Promise<void> {
     return;
   }
 
-  const cron = flags.cron ?? syncConfig.cron ?? undefined;
-  const interval = flags.interval ?? syncConfig.interval ?? undefined;
+  const cron =
+    flags.interval !== undefined ? undefined : (flags.cron ?? syncConfig.cron ?? undefined);
+  const interval =
+    flags.cron !== undefined ? undefined : (flags.interval ?? syncConfig.interval ?? undefined);
 
   const daemonConfig: DaemonConfig = {
     serviceName,

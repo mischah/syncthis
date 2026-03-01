@@ -119,8 +119,31 @@ describe('daemon start', () => {
     await promise;
 
     expect(platform.install).toHaveBeenCalledOnce();
+    expect(platform.install).toHaveBeenCalledWith(
+      expect.objectContaining({ interval: 10, cron: undefined }),
+    );
     expect(platform.start).toHaveBeenCalledOnce();
     expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Daemon started'));
+  });
+
+  it('--cron flag overrides config interval', async () => {
+    mockLoadConfig.mockResolvedValue({ ...baseConfig, cron: null, interval: 300 });
+    const platform = makeMockPlatform({
+      status: vi
+        .fn()
+        .mockResolvedValueOnce({ state: 'not-installed' } as DaemonStatus)
+        .mockResolvedValueOnce({ state: 'running', pid: 1 } as DaemonStatus),
+    });
+    mockGetPlatform.mockReturnValue(platform);
+
+    vi.useFakeTimers();
+    const promise = handleDaemon('start', { path: tempDir, cron: '*/2 * * * *' });
+    await vi.runAllTimersAsync();
+    await promise;
+
+    expect(platform.install).toHaveBeenCalledWith(
+      expect.objectContaining({ cron: '*/2 * * * *', interval: undefined }),
+    );
   });
 
   it('prints Info message and skips install when already running', async () => {
