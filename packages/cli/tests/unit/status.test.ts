@@ -28,6 +28,16 @@ vi.mock('simple-git', () => ({
   default: () => mockGitInstance,
 }));
 
+const mockGetPlatform = vi.hoisted(() => vi.fn());
+vi.mock('../../src/daemon/platform.js', () => ({
+  getPlatform: mockGetPlatform,
+}));
+
+const mockGenerateServiceName = vi.hoisted(() => vi.fn());
+vi.mock('../../src/daemon/service-name.js', () => ({
+  generateServiceName: mockGenerateServiceName,
+}));
+
 import { handleStatus } from '../../src/commands/status.js';
 
 describe('handleStatus', () => {
@@ -36,6 +46,10 @@ describe('handleStatus', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    // Default: platform throws (unsupported), so service section is skipped
+    mockGetPlatform.mockImplementation(() => {
+      throw new Error('Unsupported platform');
+    });
   });
 
   it('prints "Not initialized" when .syncthis.json does not exist', async () => {
@@ -64,7 +78,7 @@ describe('handleStatus', () => {
 
     await handleStatus({ path: '/tmp/test' });
 
-    expect(logSpy).toHaveBeenCalledWith('Config: valid');
+    expect(logSpy).toHaveBeenCalledWith('Config:');
     expect(logSpy).toHaveBeenCalledWith('  Remote:   git@github.com:user/vault.git');
     expect(logSpy).toHaveBeenCalledWith('  Branch:   main');
     expect(logSpy).toHaveBeenCalledWith('  Schedule: */5 * * * *');
@@ -202,5 +216,82 @@ describe('handleStatus', () => {
     await handleStatus({ path: '/tmp/test' });
 
     expect(logSpy).toHaveBeenCalledWith('  Not a git repository or git error.');
+  });
+
+  it('shows service status when platform is supported and service is running', async () => {
+    mockAccess.mockResolvedValueOnce(undefined);
+    mockLoadConfig.mockResolvedValueOnce({
+      remote: 'git@github.com:user/vault.git',
+      branch: 'main',
+      cron: '*/5 * * * *',
+      interval: null,
+      daemonLabel: 'my-vault',
+    });
+    mockIsLocked.mockResolvedValueOnce({ locked: false });
+    mockGitInstance.revparse.mockResolvedValueOnce('main\n');
+    mockGitInstance.getRemotes.mockResolvedValueOnce([]);
+    mockGitInstance.raw.mockResolvedValueOnce('');
+    mockGitInstance.log.mockResolvedValueOnce({ latest: null });
+
+    const mockPlatform = {
+      status: vi.fn().mockResolvedValue({ state: 'running', pid: 1234 }),
+      isAutostartEnabled: vi.fn().mockResolvedValue(true),
+    };
+    mockGetPlatform.mockReturnValue(mockPlatform);
+    mockGenerateServiceName.mockReturnValue('com.syncthis.my-vault');
+
+    await handleStatus({ path: '/tmp/test' });
+
+    expect(logSpy).toHaveBeenCalledWith('\nService:');
+    expect(logSpy).toHaveBeenCalledWith('  Status:    running (PID 1234)');
+    expect(logSpy).toHaveBeenCalledWith('  Label:     my-vault');
+    expect(logSpy).toHaveBeenCalledWith('  Autostart: on');
+  });
+
+  it('shows "not installed" when no service exists', async () => {
+    mockAccess.mockResolvedValueOnce(undefined);
+    mockLoadConfig.mockResolvedValueOnce({
+      remote: 'git@github.com:user/vault.git',
+      branch: 'main',
+      cron: '*/5 * * * *',
+      interval: null,
+    });
+    mockIsLocked.mockResolvedValueOnce({ locked: false });
+    mockGitInstance.revparse.mockResolvedValueOnce('main\n');
+    mockGitInstance.getRemotes.mockResolvedValueOnce([]);
+    mockGitInstance.raw.mockResolvedValueOnce('');
+    mockGitInstance.log.mockResolvedValueOnce({ latest: null });
+
+    const mockPlatform = {
+      status: vi.fn().mockResolvedValue({ state: 'not-installed' }),
+    };
+    mockGetPlatform.mockReturnValue(mockPlatform);
+    mockGenerateServiceName.mockReturnValue('com.syncthis.test');
+
+    await handleStatus({ path: '/tmp/test' });
+
+    expect(logSpy).toHaveBeenCalledWith('\nService: not installed');
+  });
+
+  it('skips service section when platform is not supported', async () => {
+    mockAccess.mockResolvedValueOnce(undefined);
+    mockLoadConfig.mockResolvedValueOnce({
+      remote: 'git@github.com:user/vault.git',
+      branch: 'main',
+      cron: '*/5 * * * *',
+      interval: null,
+    });
+    mockIsLocked.mockResolvedValueOnce({ locked: false });
+    mockGitInstance.revparse.mockResolvedValueOnce('main\n');
+    mockGitInstance.getRemotes.mockResolvedValueOnce([]);
+    mockGitInstance.raw.mockResolvedValueOnce('');
+    mockGitInstance.log.mockResolvedValueOnce({ latest: null });
+
+    // getPlatform throws (unsupported platform) — default from beforeEach
+    await handleStatus({ path: '/tmp/test' });
+
+    const allCalls = logSpy.mock.calls.flat().join('\n');
+    expect(allCalls).not.toContain('Service:');
+    expect(allCalls).not.toContain('Service: not installed');
   });
 });

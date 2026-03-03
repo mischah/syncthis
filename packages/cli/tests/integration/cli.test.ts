@@ -47,7 +47,11 @@ describe('--help', () => {
     expect(result.stdout).toContain('syncthis');
     expect(result.stdout).toContain('init');
     expect(result.stdout).toContain('start');
+    expect(result.stdout).toContain('stop');
     expect(result.stdout).toContain('status');
+    expect(result.stdout).toContain('list');
+    expect(result.stdout).toContain('logs');
+    expect(result.stdout).toContain('uninstall');
   });
 });
 
@@ -98,6 +102,13 @@ describe('start command', () => {
     const combined = result.stdout + result.stderr;
     expect(combined).toMatch(/init/i);
   });
+
+  it('exits with non-zero in foreground mode when .syncthis.json is missing', async () => {
+    const result = await runCli(['start', '--foreground', '--path', tempDir]);
+    expect(result.exitCode).not.toBe(0);
+    const combined = result.stdout + result.stderr;
+    expect(combined).toMatch(/init/i);
+  });
 });
 
 describe('status command', () => {
@@ -108,17 +119,17 @@ describe('status command', () => {
   });
 });
 
-describe('daemon command', () => {
-  it('reports an error and exits with non-zero when no subcommand is given', async () => {
-    const result = await runCli(['daemon']);
+describe('stop command', () => {
+  it('exits with non-zero when no service is installed', async () => {
+    const result = await runCli(['stop', '--path', tempDir]);
     expect(result.exitCode).not.toBe(0);
-    expect(result.stderr).toContain('No daemon subcommand provided');
   });
+});
 
-  it('exits with non-zero and hints at init when .syncthis.json is missing', async () => {
-    const result = await runCli(['daemon', 'start', '--path', tempDir]);
+describe('logs command', () => {
+  it('exits with non-zero when no log file exists', async () => {
+    const result = await runCli(['logs', '--path', tempDir]);
     expect(result.exitCode).not.toBe(0);
-    const combined = result.stdout + result.stderr;
-    expect(combined).toMatch(/init/i);
+    expect(result.stderr).toContain('No log file found');
   });
 });

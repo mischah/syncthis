@@ -11,12 +11,32 @@ const execFileAsync = promisify(execFile);
 
 export interface StartFlags {
   path: string;
+  foreground?: boolean;
   cron?: string;
   interval?: number;
   logLevel: string;
+  label?: string;
+  enableAutostart?: boolean;
 }
 
 export async function handleStart(flags: StartFlags): Promise<void> {
+  if (flags.foreground) {
+    await runForeground(flags);
+    return;
+  }
+
+  const { daemonStart } = await import('./daemon.js');
+  await daemonStart({
+    path: flags.path,
+    label: flags.label,
+    enableAutostart: flags.enableAutostart,
+    cron: flags.cron,
+    interval: flags.interval,
+    logLevel: flags.logLevel,
+  });
+}
+
+async function runForeground(flags: StartFlags): Promise<void> {
   const dirPath = flags.path;
 
   // Check git availability

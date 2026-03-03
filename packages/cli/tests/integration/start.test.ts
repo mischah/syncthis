@@ -77,7 +77,7 @@ describe('handleStart integration', () => {
     await writeFile(join(workDir, 'note.md'), '# My Note\n', 'utf8');
 
     // Start the sync process as a subprocess via tsx
-    const proc = execa(TSX_BIN, [CLI_PATH, 'start', '--path', workDir], {
+    const proc = execa(TSX_BIN, [CLI_PATH, 'start', '--foreground', '--path', workDir], {
       env: { ...process.env, ...GIT_ENV },
       reject: false,
     });

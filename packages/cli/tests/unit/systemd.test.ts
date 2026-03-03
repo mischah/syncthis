@@ -59,7 +59,7 @@ describe('SystemdPlatform', () => {
       expect(mockWriteFile).toHaveBeenCalledWith(
         UNIT_PATH,
         expect.stringContaining(
-          'ExecStart=/usr/local/bin/syncthis start --path /home/user/vault-notes',
+          'ExecStart=/usr/local/bin/syncthis start --foreground --path /home/user/vault-notes',
         ),
         'utf-8',
       );

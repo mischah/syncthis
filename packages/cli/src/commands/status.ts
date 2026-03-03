@@ -2,10 +2,13 @@ import { access } from 'node:fs/promises';
 import { join } from 'node:path';
 import simpleGit from 'simple-git';
 import { type SyncthisConfig, loadConfig } from '../config.js';
+import { getPlatform } from '../daemon/platform.js';
+import { generateServiceName } from '../daemon/service-name.js';
 import { isLocked, readLockFile } from '../lock.js';
 
 export interface StatusFlags {
   path: string;
+  label?: string;
 }
 
 async function fileExists(filePath: string): Promise<boolean> {
@@ -31,11 +34,13 @@ export async function handleStatus(flags: StatusFlags): Promise<void> {
   let config: SyncthisConfig | null = null;
   try {
     config = await loadConfig(dirPath);
-    console.log('Config: valid');
+    console.log('Config:');
     console.log(`  Remote:   ${config.remote}`);
     console.log(`  Branch:   ${config.branch}`);
     const schedule = config.cron ?? `${config.interval}s`;
     console.log(`  Schedule: ${schedule}`);
+    const logPath = join(dirPath, '.syncthis', 'logs', 'syncthis.log');
+    console.log(`  Log:      ${logPath}`);
   } catch (err) {
     console.log(`Config: invalid – ${(err as Error).message}`);
   }
@@ -81,5 +86,31 @@ export async function handleStatus(flags: StatusFlags): Promise<void> {
     }
   } catch {
     console.log('  Not a git repository or git error.');
+  }
+
+  // Service status
+  try {
+    const platform = getPlatform();
+    const label = flags.label ?? config?.daemonLabel;
+    const serviceName = generateServiceName(dirPath, label ?? undefined);
+    const serviceStatus = await platform.status(serviceName);
+
+    if (serviceStatus.state === 'not-installed') {
+      console.log('\nService: not installed');
+    } else {
+      const statusStr =
+        serviceStatus.state === 'running' && serviceStatus.pid !== undefined
+          ? `running (PID ${serviceStatus.pid})`
+          : serviceStatus.state;
+      const autostart = await platform.isAutostartEnabled(serviceName);
+      const serviceLabel = serviceName.replace('com.syncthis.', '');
+
+      console.log('\nService:');
+      console.log(`  Status:    ${statusStr}`);
+      console.log(`  Label:     ${serviceLabel}`);
+      console.log(`  Autostart: ${autostart ? 'on' : 'off'}`);
+    }
+  } catch {
+    // Platform not supported or other error — skip service section
   }
 }
