@@ -31,7 +31,7 @@
   "keywords": ["git", "sync", "cli", "obsidian", "backup", "auto-commit"],
   "license": "MIT",
   "dependencies": {
-    "croner": "8.1.2",
+    "croner": "10.0.1",
     "execa": "9.6.1",
     "meow": "14.1.0",
     "simple-git": "3.32.3"
