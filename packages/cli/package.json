@@ -34,7 +34,7 @@
     "croner": "8.1.2",
     "execa": "9.6.1",
     "meow": "14.1.0",
-    "simple-git": "3.32.2"
+    "simple-git": "3.32.3"
   },
   "devDependencies": {
     "@types/node": "25.3.0",
