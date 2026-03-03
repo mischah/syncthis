@@ -37,7 +37,7 @@
     "simple-git": "3.32.3"
   },
   "devDependencies": {
-    "@types/node": "25.3.0",
+    "@types/node": "25.3.3",
     "@vitest/coverage-v8": "4.0.18",
     "tsdown": "0.20.3",
     "tsx": "4.21.0",
