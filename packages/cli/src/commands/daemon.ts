@@ -23,38 +23,7 @@ export interface DaemonFlags {
   lines?: number;
 }
 
-export async function handleDaemon(
-  subcommand: string | undefined,
-  flags: DaemonFlags,
-): Promise<void> {
-  switch (subcommand) {
-    case 'start':
-      await daemonStart(flags);
-      break;
-    case 'stop':
-      await daemonStop(flags);
-      break;
-    case 'status':
-      await daemonStatus(flags);
-      break;
-    case 'uninstall':
-      await daemonUninstall(flags);
-      break;
-    case 'logs':
-      await daemonLogs(flags);
-      break;
-    default: {
-      const msg = subcommand
-        ? `Unknown daemon subcommand '${subcommand}'.`
-        : 'No daemon subcommand provided.';
-      console.error(`Error: ${msg}`);
-      console.error('Available subcommands: start, stop, status, uninstall, logs');
-      process.exit(1);
-    }
-  }
-}
-
-async function resolveServiceName(flags: DaemonFlags): Promise<string> {
+export async function resolveServiceName(flags: DaemonFlags): Promise<string> {
   if (flags.label !== undefined) {
     return generateServiceName(flags.path, flags.label);
   }
@@ -69,7 +38,7 @@ async function resolveServiceName(flags: DaemonFlags): Promise<string> {
   return generateServiceName(flags.path);
 }
 
-function getPlatformOrExit(): DaemonPlatform {
+export function getPlatformOrExit(): DaemonPlatform {
   try {
     return getPlatform();
   } catch (err) {
@@ -78,7 +47,7 @@ function getPlatformOrExit(): DaemonPlatform {
   }
 }
 
-async function daemonStart(flags: DaemonFlags): Promise<void> {
+export async function daemonStart(flags: DaemonFlags): Promise<void> {
   const dirPath = flags.path;
 
   const syncConfig = await loadConfig(dirPath).catch(() => {
@@ -150,14 +119,14 @@ async function daemonStart(flags: DaemonFlags): Promise<void> {
   }
 }
 
-async function daemonStop(flags: DaemonFlags): Promise<void> {
+export async function daemonStop(flags: DaemonFlags): Promise<void> {
   const dirPath = flags.path;
   const serviceName = await resolveServiceName(flags);
   const platform = getPlatformOrExit();
   const currentStatus = await platform.status(serviceName);
 
   if (currentStatus.state === 'not-installed') {
-    console.error(`Error: No daemon found for ${dirPath}. Run 'syncthis daemon start' first.`);
+    console.error(`Error: No service found for ${dirPath}. Run 'syncthis start' first.`);
     process.exit(1);
   }
 
@@ -170,50 +139,19 @@ async function daemonStop(flags: DaemonFlags): Promise<void> {
   console.log(`Daemon stopped. Directory: ${dirPath}`);
 }
 
-async function daemonStatus(flags: DaemonFlags): Promise<void> {
+export async function handleList(): Promise<void> {
   const platform = getPlatformOrExit();
-  const pathExplicit = process.argv.some((arg) => arg === '--path' || arg.startsWith('--path='));
+  const daemons = await platform.listAll();
 
-  if (flags.label !== undefined || pathExplicit) {
-    const serviceName = await resolveServiceName(flags);
-    const label = serviceName.replace('com.syncthis.', '');
-    const serviceStatus = await platform.status(serviceName);
-
-    let scheduleStr = 'unknown';
-    try {
-      const config = await loadConfig(flags.path);
-      scheduleStr = config.cron ?? `every ${config.interval}s`;
-    } catch {
-      // Config not available
-    }
-
-    const statusStr =
-      serviceStatus.state === 'running' && serviceStatus.pid !== undefined
-        ? `running (PID ${serviceStatus.pid})`
-        : serviceStatus.state;
-    const logPath = join(flags.path, '.syncthis', 'logs', 'syncthis.log');
-    const autostart = await platform.isAutostartEnabled(serviceName);
-
-    console.log(`Daemon: ${label}`);
-    console.log(`  Status:      ${statusStr}`);
-    console.log(`  Path:        ${flags.path}`);
-    console.log(`  Service:     ${serviceName}`);
-    console.log(`  Schedule:    ${scheduleStr}`);
-    console.log(`  Autostart:   ${autostart ? 'on' : 'off'}`);
-    console.log(`  Log:         ${logPath}`);
-  } else {
-    const daemons = await platform.listAll();
-
-    if (daemons.length === 0) {
-      console.log('No syncthis daemons registered.');
-      return;
-    }
-
-    printDaemonTable(daemons);
+  if (daemons.length === 0) {
+    console.log('No syncthis services registered.');
+    return;
   }
+
+  printDaemonTable(daemons);
 }
 
-function printDaemonTable(daemons: DaemonInfo[]): void {
+export function printDaemonTable(daemons: DaemonInfo[]): void {
   const headers = ['Label', 'Status', 'PID', 'Schedule', 'Autostart', 'Path'];
 
   const rows = daemons.map((d) => [
@@ -235,14 +173,14 @@ function printDaemonTable(daemons: DaemonInfo[]): void {
   }
 }
 
-async function daemonUninstall(flags: DaemonFlags): Promise<void> {
+export async function daemonUninstall(flags: DaemonFlags): Promise<void> {
   const dirPath = flags.path;
   const serviceName = await resolveServiceName(flags);
   const platform = getPlatformOrExit();
   const currentStatus = await platform.status(serviceName);
 
   if (currentStatus.state === 'not-installed') {
-    console.log(`Info: No daemon installed for ${dirPath}. Nothing to uninstall.`);
+    console.log(`Info: No service installed for ${dirPath}. Nothing to uninstall.`);
     return;
   }
 
@@ -255,10 +193,10 @@ async function daemonUninstall(flags: DaemonFlags): Promise<void> {
     // Non-fatal
   }
 
-  console.log(`Daemon uninstalled. Directory: ${dirPath}`);
+  console.log(`Service uninstalled. Directory: ${dirPath}`);
 }
 
-async function daemonLogs(flags: DaemonFlags): Promise<void> {
+export async function daemonLogs(flags: DaemonFlags): Promise<void> {
   const dirPath = flags.path;
   const logPath = join(dirPath, '.syncthis', 'logs', 'syncthis.log');
 

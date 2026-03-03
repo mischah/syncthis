@@ -16,10 +16,11 @@ describe('generatePlist', () => {
     expect(plist).toContain('<string>com.syncthis.user-vault-notes</string>');
   });
 
-  it('contains correct ProgramArguments (syncthisBinary, start, --path, dirPath)', () => {
+  it('contains correct ProgramArguments (syncthisBinary, start, --foreground, --path, dirPath)', () => {
     const plist = generatePlist(BASE_CONFIG);
     expect(plist).toContain('<string>/usr/local/bin/syncthis</string>');
     expect(plist).toContain('<string>start</string>');
+    expect(plist).toContain('<string>--foreground</string>');
     expect(plist).toContain('<string>--path</string>');
     expect(plist).toContain('<string>/home/user/vault-notes</string>');
   });
@@ -89,7 +90,9 @@ describe('generatePlist', () => {
 describe('generateSystemdUnit', () => {
   it('contains correct ExecStart with binary, start, --path, and dirPath', () => {
     const unit = generateSystemdUnit(BASE_CONFIG);
-    expect(unit).toContain('ExecStart=/usr/local/bin/syncthis start --path /home/user/vault-notes');
+    expect(unit).toContain(
+      'ExecStart=/usr/local/bin/syncthis start --foreground --path /home/user/vault-notes',
+    );
   });
 
   it('does not contain node binary in ExecStart', () => {

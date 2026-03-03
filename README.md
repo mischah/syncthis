@@ -19,9 +19,12 @@ Commits, pulls, and pushes your changes on a configurable schedule — no manual
 - [Installation](#installation)
 - [Commands](#commands)
   - [syncthis init](#syncthis-init)
-  - [syncthis daemon](#syncthis-daemon)
+  - [syncthis start](#syncthis-start)
+  - [syncthis stop](#syncthis-stop)
   - [syncthis status](#syncthis-status)
-  - [syncthis start (foreground)](#syncthis-start-foreground)
+  - [syncthis list](#syncthis-list)
+  - [syncthis logs](#syncthis-logs)
+  - [syncthis uninstall](#syncthis-uninstall)
 - [How It Works](#how-it-works)
 - [Configuration](#configuration)
 - [Logging](#logging)
@@ -57,7 +60,7 @@ cd /path/to/your/obsidian-vault
 syncthis init --remote git@github.com:yourname/my-vault.git
 
 # 4. Start syncing in the background (every 5 minutes by default)
-syncthis daemon start
+syncthis start
 ```
 
 That's it. You can close the terminal — syncthis runs as a background service managed by your OS. On your other devices, repeat steps 2–4 using `--clone` instead of `--remote`:
@@ -65,19 +68,19 @@ That's it. You can close the terminal — syncthis runs as a background service 
 ```bash
 # On your second device: clone and start syncing
 syncthis init --clone git@github.com:yourname/my-vault.git --path /path/to/vault
-syncthis daemon start
+syncthis start
 ```
 
 **Check the status anytime:**
 
 ```bash
-syncthis daemon status
+syncthis status
 ```
 
 **Stop syncing:**
 
 ```bash
-syncthis daemon stop
+syncthis stop
 ```
 
 ---
@@ -142,19 +145,15 @@ syncthis init --clone git@github.com:user/vault.git --path ./my-vault
 
 ---
 
-### `syncthis daemon`
+### `syncthis start`
 
-Manages the background sync service. This is the recommended way to run syncthis — the OS handles starting, stopping, and restarting the process for you.
-
-#### `syncthis daemon start`
-
-Installs (if needed) and starts the background sync service.
+Installs (if needed) and starts the background sync service. This is the primary way to run syncthis — the OS handles starting, stopping, and restarting the process for you.
 
 ```bash
-syncthis daemon start
-syncthis daemon start --path ~/vault
-syncthis daemon start --label my-vault
-syncthis daemon start --enable-autostart
+syncthis start
+syncthis start --path ~/vault
+syncthis start --label my-vault
+syncthis start --enable-autostart
 ```
 
 - Creates an OS service (launchd on macOS, systemd on Linux).
@@ -172,63 +171,39 @@ syncthis daemon start --enable-autostart
 | `--cron` | string | Cron expression. Persisted in the service definition. |
 | `--interval` | number | Interval in seconds. Persisted in the service definition. |
 | `--log-level` | string | `debug`, `info`, `warn`, `error`. Default: `info` |
+| `--foreground` | boolean | Run in foreground instead of as a service (see below). |
 
-#### `syncthis daemon stop`
+`--cron` and `--interval` are mutually exclusive. CLI flags take priority over `.syncthis.json`.
 
-Stops the background sync service. The service stays installed and can be restarted with `daemon start`.
+#### Foreground mode
 
-```bash
-syncthis daemon stop
-syncthis daemon stop --path ~/vault
-```
-
-#### `syncthis daemon status`
-
-Shows the status of all registered daemons, or a specific one.
+Use `syncthis start --foreground` to run the sync loop attached to the terminal. The process stops when the terminal is closed.
 
 ```bash
-# All daemons
-syncthis daemon status
-
-# Specific daemon
-syncthis daemon status --path ~/vault
+syncthis start --foreground
+syncthis start --foreground --path /home/user/my-vault
+syncthis start --foreground --cron "*/5 * * * *"
+syncthis start --foreground --interval 300
 ```
 
-**Example output (all daemons):**
+> Use foreground mode when you want to see live output for debugging, or in environments without a service layer (e.g. Docker containers).
 
-```
-syncthis daemons:
+---
 
-  ● vault-notes     running   /home/user/vault-notes     autostart: off
-  ○ work-notes      stopped   /home/user/work/notes      autostart: on
-```
+### `syncthis stop`
 
-#### `syncthis daemon uninstall`
-
-Stops and completely removes the service from the OS.
+Stops the background sync service. The service stays installed and can be restarted with `syncthis start`.
 
 ```bash
-syncthis daemon uninstall
-syncthis daemon uninstall --path ~/vault
-```
-
-Your files, `.syncthis.json`, and logs are not deleted — only the OS service registration is removed.
-
-#### `syncthis daemon logs`
-
-Shows the daemon's log output.
-
-```bash
-syncthis daemon logs                    # Last 50 lines
-syncthis daemon logs --follow           # Live output (Ctrl+C to stop)
-syncthis daemon logs --lines 100        # Last 100 lines
+syncthis stop
+syncthis stop --path ~/vault
 ```
 
 ---
 
 ### `syncthis status`
 
-Shows the current sync status of a directory (independent of daemon mode).
+Shows the current sync status of a directory, including config, Git info, and service state.
 
 ```bash
 syncthis status
@@ -240,34 +215,52 @@ syncthis status --path /home/user/my-vault
 - Whether `.syncthis.json` exists and is valid.
 - Whether a sync process is currently running (with PID).
 - Git info: branch, remote URL, number of uncommitted changes, last commit.
+- Service status: running/stopped/not installed, label, autostart.
 
 Works even without `.syncthis.json` (shows "Not initialized").
 
 ---
 
-### `syncthis start` (foreground)
+### `syncthis list`
 
-Runs the sync loop in the foreground, attached to the terminal. The process stops when the terminal is closed.
+Lists all registered syncthis services on the system.
 
 ```bash
-syncthis start
-syncthis start --path /home/user/my-vault
-syncthis start --cron "*/5 * * * *"
-syncthis start --interval 300
+syncthis list
 ```
 
-> **For most users, [`syncthis daemon start`](#syncthis-daemon-start) is the better choice** — it runs in the background and survives terminal close. Use `syncthis start` when you want to see live output for debugging, or in environments without a service layer (e.g. Docker containers).
+**Example output:**
 
-**Flags:**
+```
+Label        Status   PID   Schedule       Autostart  Path
+vault-notes  running  1234  */5 * * * *    off        /home/user/vault-notes
+work-notes   stopped  -     */5 * * * *    on         /home/user/work/notes
+```
 
-| Flag | Type | Description |
-|------|------|-------------|
-| `--path` | string | Directory to sync. Default: current directory |
-| `--cron` | string | Cron expression. Overrides config. |
-| `--interval` | number | Interval in seconds. Overrides config. |
-| `--log-level` | string | `debug`, `info`, `warn`, `error`. Default: `info` |
+---
 
-`--cron` and `--interval` are mutually exclusive. CLI flags take priority over `.syncthis.json`.
+### `syncthis logs`
+
+Shows the sync log output.
+
+```bash
+syncthis logs                    # Last 50 lines
+syncthis logs --follow           # Live output (Ctrl+C to stop)
+syncthis logs --lines 100        # Last 100 lines
+```
+
+---
+
+### `syncthis uninstall`
+
+Stops and completely removes the service from the OS.
+
+```bash
+syncthis uninstall
+syncthis uninstall --path ~/vault
+```
+
+Your files, `.syncthis.json`, and logs are not deleted — only the OS service registration is removed.
 
 ---
 
@@ -309,22 +302,22 @@ Scheduled trigger (cron or interval)
         ✅ Done
 ```
 
-**Conflict handling:** syncthis never resolves conflicts automatically. If a rebase conflict occurs, the sync loop stops and exits with code 1. Resolve the conflict manually (`git rebase --continue`), then restart with `syncthis daemon start` or `syncthis start`.
+**Conflict handling:** syncthis never resolves conflicts automatically. If a rebase conflict occurs, the sync loop stops and exits with code 1. Resolve the conflict manually (`git rebase --continue`), then restart with `syncthis start`.
 
 **Offline support:** If the network is unavailable, the local commit succeeds. The pull and push failures are logged as warnings, and the loop continues. Everything syncs on the next successful cycle.
 
 **Single instance:** A `.syncthis.lock` file prevents multiple instances from running against the same directory. Stale locks (left by a crash) are detected automatically by checking the recorded PID.
 
-### Daemon lifecycle
+### Service lifecycle
 
-When using `syncthis daemon start`, the OS manages the sync process:
+When using `syncthis start`, the OS manages the sync process:
 
-- **macOS:** Registered as a launchd LaunchAgent (`~/Library/LaunchAgents/`). The service runs `syncthis start` internally as a foreground process — launchd handles daemonization.
+- **macOS:** Registered as a launchd LaunchAgent (`~/Library/LaunchAgents/`). The service runs `syncthis start --foreground` internally — launchd handles daemonization.
 - **Linux:** Registered as a systemd user unit (`~/.config/systemd/user/`). Uses `systemctl --user` for management.
 
-The OS auto-restarts the service on unexpected exits (crash, rebase conflict after manual resolution). Graceful stops via `syncthis daemon stop` or `SIGTERM` are not restarted.
+The OS auto-restarts the service on unexpected exits (crash, rebase conflict after manual resolution). Graceful stops via `syncthis stop` or `SIGTERM` are not restarted.
 
-> **Linux note:** For the daemon to keep running after logout, user lingering must be enabled: `loginctl enable-linger $USER` (may require sudo). syncthis warns you if this isn't configured.
+> **Linux note:** For the service to keep running after logout, user lingering must be enabled: `loginctl enable-linger $USER` (may require sudo). syncthis warns you if this isn't configured.
 
 ---
 
@@ -381,11 +374,11 @@ Logs are written to both **stdout** and **`.syncthis/logs/syncthis.log`** in the
 Control log verbosity with `--log-level`:
 
 ```bash
-syncthis start --log-level debug   # verbose output
-syncthis start --log-level warn    # warnings and errors only
+syncthis start --foreground --log-level debug   # verbose output
+syncthis start --foreground --log-level warn    # warnings and errors only
 ```
 
-**Daemon mode logging:** In addition to the app log file, stdout/stderr are captured by the OS service layer. On macOS, these are stored in `.syncthis/logs/launchd-stdout.log` and `.syncthis/logs/launchd-stderr.log`. On Linux, they go to the systemd journal and can be viewed with `journalctl --user -u syncthis-<label>`. Use `syncthis daemon logs` as a shortcut.
+**Service mode logging:** In addition to the app log file, stdout/stderr are captured by the OS service layer. On macOS, these are stored in `.syncthis/logs/launchd-stdout.log` and `.syncthis/logs/launchd-stderr.log`. On Linux, they go to the systemd journal and can be viewed with `journalctl --user -u syncthis-<label>`. Use `syncthis logs` as a shortcut.
 
 ---
 
@@ -420,9 +413,9 @@ syncthis/
 │       │   ├── cli.ts           # Entry point, command routing
 │       │   ├── commands/
 │       │   │   ├── init.ts
-│       │   │   ├── start.ts
+│       │   │   ├── start.ts     # Dual-mode: service (default) + foreground
 │       │   │   ├── status.ts
-│       │   │   └── daemon.ts    # Daemon subcommand handler
+│       │   │   └── daemon.ts    # Service management functions
 │       │   ├── daemon/
 │       │   │   ├── platform.ts  # DaemonPlatform interface + factory
 │       │   │   ├── launchd.ts   # macOS launchd implementation
@@ -476,10 +469,10 @@ These features are intentionally out of scope for now but may be explored later:
 - **Standalone distribution** — Ship without requiring Node.js:
   - *Stage 1:* Homebrew formula with Node as a dependency (`brew install syncthis`).
   - *Stage 2:* Self-contained binaries via `bun build --compile` or Node SEA, built by GitHub Actions for macOS (arm64 + x64), Linux (x64), and Windows (x64).
-- **Windows daemon support** — Daemon mode currently supports macOS (launchd) and Linux (systemd). Windows support could be added via Windows Service Manager or [NSSM](https://nssm.cc) (Non-Sucking Service Manager).
-- **Daemon service updates** — When syncthis is updated, existing service definitions may still point to the old binary path. A `syncthis daemon update` command or automatic detection in `syncthis daemon status` could handle this.
-- **Batch daemon management** — `syncthis daemon start --all` / `syncthis daemon stop --all` to manage all registered daemons at once.
-- **Daemon health checks** — Periodic verification that the daemon is actually syncing (not just that the process is alive). Could detect stuck processes or persistent errors.
+- **Windows service support** — Service mode currently supports macOS (launchd) and Linux (systemd). Windows support could be added via Windows Service Manager or [NSSM](https://nssm.cc) (Non-Sucking Service Manager).
+- **Service updates** — When syncthis is updated, existing service definitions may still point to the old binary path. A `syncthis update` command or automatic detection in `syncthis status` could handle this.
+- **Batch management** — `syncthis start --all` / `syncthis stop --all` to manage all registered services at once.
+- **Health checks** — Periodic verification that the service is actually syncing (not just that the process is alive). Could detect stuck processes or persistent errors.
 - **Automated releases** — Conventional Commits + `commit-and-tag-version` (or `release-it`) for SemVer tagging, auto-generated `CHANGELOG.md`, and a GitHub Actions workflow that publishes to npm on tag push (`feat:` → minor, `fix:` → patch, `feat!:` → major).
 
 ---

@@ -3,7 +3,7 @@ import type { DaemonConfig } from './platform.js';
 const DEFAULT_PATH = '/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin';
 
 function buildProgramArguments(config: DaemonConfig): string[] {
-  const args = [config.syncthisBinary, 'start', '--path', config.dirPath];
+  const args = [config.syncthisBinary, 'start', '--foreground', '--path', config.dirPath];
 
   if (config.cron !== undefined) {
     args.push('--cron', config.cron);
