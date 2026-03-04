@@ -133,3 +133,34 @@ describe('logs command', () => {
     expect(result.stderr).toContain('No log file found');
   });
 });
+
+describe('per-command --help', () => {
+  it('shows start-specific help', async () => {
+    const result = await runCli(['start', '--help']);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('--foreground');
+    expect(result.stdout).toContain('--enable-autostart');
+    expect(result.stdout).not.toContain('--follow');
+  });
+
+  it('shows logs-specific help', async () => {
+    const result = await runCli(['logs', '--help']);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('--follow');
+    expect(result.stdout).not.toContain('--foreground');
+  });
+
+  it('shows init-specific help', async () => {
+    const result = await runCli(['init', '--help']);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('--remote');
+    expect(result.stdout).not.toContain('--follow');
+  });
+
+  it('shows stop-specific help', async () => {
+    const result = await runCli(['stop', '--help']);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('--label');
+    expect(result.stdout).not.toContain('--foreground');
+  });
+});
