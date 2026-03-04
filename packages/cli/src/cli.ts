@@ -26,6 +26,8 @@ const COMMAND_HELP: Record<string, string> = {
 
   Options
     --foreground        Run in foreground instead of as service
+    --cron              Cron expression for sync schedule (mutually exclusive)
+    --interval          Sync interval in seconds (mutually exclusive)
     --label             Custom service name
     --enable-autostart  Start service on login
     --path              Target directory (default: current directory)
@@ -91,6 +93,8 @@ const cli = meow(
       --branch            Branch name
     start       Start background sync service
       --foreground        Run in foreground instead of as service
+      --cron              Cron expression for sync schedule (mutually exclusive)
+      --interval          Sync interval in seconds (mutually exclusive)
       --label             Custom service name
       --enable-autostart  Start service on login
     stop        Stop background sync service
@@ -107,11 +111,12 @@ const cli = meow(
   Global options
     --path              Target directory (default: current directory)
     --help, -h          Show help text
-    --version           Show version number
+    --version, -v       Show version number
 
   Examples
     $ syncthis init --remote git@github.com:user/vault.git
     $ syncthis start --path ~/vault
+    $ syncthis start --interval 60
     $ syncthis start --foreground
     $ syncthis logs --follow
     $ syncthis status
@@ -119,6 +124,7 @@ const cli = meow(
   {
     importMeta: import.meta,
     autoHelp: false,
+    autoVersion: false,
     allowUnknownFlags: false,
     flags: {
       path: { type: 'string', default: process.cwd() },
@@ -134,9 +140,15 @@ const cli = meow(
       follow: { type: 'boolean', default: false, shortFlag: 'f' },
       lines: { type: 'number', default: 50, shortFlag: 'n' },
       help: { type: 'boolean', default: false, shortFlag: 'h' },
+      version: { type: 'boolean', default: false, shortFlag: 'v' },
     },
   },
 );
+
+if (cli.flags.version) {
+  cli.showVersion();
+  process.exit(0);
+}
 
 const command = cli.input[0];
 
