@@ -30,6 +30,7 @@ const COMMAND_HELP: Record<string, string> = {
     --cron              Cron expression for sync schedule
     --interval          Sync interval in seconds
                         (use --cron or --interval, not both)
+    --log-level         Log verbosity: debug, info, warn, error (default: info)
     --label             Custom service name
     --enable-autostart  Start service on login
     --path              Target directory (default: current directory)
@@ -99,6 +100,7 @@ const cli = meow(
       --cron              Cron expression for sync schedule
       --interval          Sync interval in seconds
                           (use --cron or --interval, not both)
+      --log-level         Log verbosity: debug, info, warn, error (default: info)
       --label             Custom service name
       --enable-autostart  Start service on login
     stop        Stop background sync service
