@@ -12,8 +12,9 @@ const COMMAND_HELP: Record<string, string> = {
   Initialize a directory for sync.
 
   Options
-    --remote    Remote repository URL (required)
-    --clone     Clone from existing remote
+    --remote    Set up sync for an existing directory
+    --clone     Clone a remote repository first
+                (use --remote or --clone, not both)
     --branch    Branch name
     --path      Target directory (default: current directory)
 `,
@@ -26,8 +27,9 @@ const COMMAND_HELP: Record<string, string> = {
 
   Options
     --foreground        Run in foreground instead of as service
-    --cron              Cron expression for sync schedule (mutually exclusive)
-    --interval          Sync interval in seconds (mutually exclusive)
+    --cron              Cron expression for sync schedule
+    --interval          Sync interval in seconds
+                        (use --cron or --interval, not both)
     --label             Custom service name
     --enable-autostart  Start service on login
     --path              Target directory (default: current directory)
@@ -88,13 +90,15 @@ const cli = meow(
 
   Commands
     init        Initialize a directory for sync
-      --remote            Remote repository URL (required)
-      --clone             Clone from existing remote
+      --remote            Set up sync for an existing directory
+      --clone             Clone a remote repository first
+                          (use --remote or --clone, not both)
       --branch            Branch name
     start       Start background sync service
       --foreground        Run in foreground instead of as service
-      --cron              Cron expression for sync schedule (mutually exclusive)
-      --interval          Sync interval in seconds (mutually exclusive)
+      --cron              Cron expression for sync schedule
+      --interval          Sync interval in seconds
+                          (use --cron or --interval, not both)
       --label             Custom service name
       --enable-autostart  Start service on login
     stop        Stop background sync service
