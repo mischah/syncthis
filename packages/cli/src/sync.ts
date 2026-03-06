@@ -1,10 +1,13 @@
 import simpleGit from 'simple-git';
 import type { SyncthisConfig } from './config.js';
+import { notifyConflict } from './conflict/notify.js';
+import { resolveRebase } from './conflict/resolver.js';
 import type { Logger } from './logger.js';
 
 export interface SyncResult {
   status: 'no-changes' | 'pulled' | 'synced' | 'conflict' | 'network-error';
   filesChanged?: number;
+  conflictCopies?: string[];
   error?: string;
 }
 
@@ -53,11 +56,53 @@ export async function runSyncCycle(
         .split('\n')
         .filter(Boolean)
         .filter((line) => CONFLICT_PREFIXES.some((prefix) => line.startsWith(prefix)))
-        .map((line) => line.slice(3))
-        .join(', ');
-      logger.error(`Rebase conflict detected in: ${conflictedFiles}. Sync paused.`);
-      logger.error(
-        `Resolve conflicts manually, then run 'git rebase --continue' and restart syncthis.`,
+        .map((line) => line.slice(3));
+
+      if (config.onConflict === 'auto-both' || config.onConflict === 'auto-newest') {
+        const resolveResult = await resolveRebase(git, config.onConflict, dirPath, logger);
+        if (resolveResult.status === 'resolved') {
+          notifyConflict(
+            {
+              type: 'conflict-resolved',
+              strategy: config.onConflict,
+              files: resolveResult.resolvedFiles,
+              dirPath,
+              message: `Conflicts auto-resolved (${config.onConflict}): ${resolveResult.resolvedFiles.join(', ')}`,
+            },
+            logger,
+          );
+          try {
+            await git.push('origin', config.branch);
+            logger.info(`Sync cycle: ${filesChanged} files changed, committed, pushed.`);
+            return { status: 'synced', filesChanged, conflictCopies: resolveResult.conflictCopies };
+          } catch (pushErr) {
+            logger.warn(`Push failed: ${String(pushErr)}. Will retry next cycle.`);
+            return { status: 'network-error', error: String(pushErr), filesChanged };
+          }
+        }
+        notifyConflict(
+          {
+            type: 'conflict-limit-reached',
+            strategy: config.onConflict,
+            files: conflictedFiles,
+            dirPath,
+            message:
+              'Too many consecutive conflicts during rebase. Auto-resolution aborted. Resolve manually.',
+          },
+          logger,
+        );
+        return { status: 'conflict', error: 'Rebase limit reached', filesChanged };
+      }
+
+      notifyConflict(
+        {
+          type: 'conflict-unresolved',
+          strategy: 'stop',
+          files: conflictedFiles,
+          dirPath,
+          message: `Rebase conflict detected in: ${conflictedFiles.join(', ')}. Sync paused. Resolve conflicts manually, then run 'git rebase --continue' and restart syncthis.`,
+        },
+        logger,
       );
       return { status: 'conflict', error: String(err), filesChanged };
     }
