@@ -32,12 +32,12 @@ async function autoBoth(
   timestamp: Date,
   dirPath: string,
 ): Promise<{ action: 'both'; conflictCopy: string }> {
-  const remoteContent = await git.raw(['show', `REBASE_HEAD:${file.filePath}`]);
+  const remoteContent = await git.raw(['show', `HEAD:${file.filePath}`]);
   const conflictCopyPath = generateConflictFilename(file.filePath, timestamp, (p) =>
     existsSync(path.join(dirPath, p)),
   );
   await writeFile(path.join(dirPath, conflictCopyPath), remoteContent, 'utf8');
-  await git.raw(['checkout', '--ours', file.filePath]);
+  await git.raw(['checkout', '--theirs', file.filePath]);
   await git.add([file.filePath, conflictCopyPath]);
   return { action: 'both', conflictCopy: conflictCopyPath };
 }

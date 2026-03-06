@@ -58,14 +58,14 @@ describe('getConflictFiles', () => {
 });
 
 describe('resolveFile – auto-both', () => {
-  it('calls git show REBASE_HEAD:<file>', async () => {
+  it('calls git show HEAD:<file> to get the upstream (remote) content', async () => {
     mockGit.raw
-      .mockResolvedValueOnce('remote content') // git show
-      .mockResolvedValueOnce(undefined); // git checkout --ours
+      .mockResolvedValueOnce('remote content') // git show HEAD:<file>
+      .mockResolvedValueOnce(undefined); // git checkout --theirs
 
     await resolveFile(mockGit as never, { filePath: 'note.md' }, 'auto-both', TS, FAKE_DIR);
 
-    expect(mockGit.raw).toHaveBeenCalledWith(['show', 'REBASE_HEAD:note.md']);
+    expect(mockGit.raw).toHaveBeenCalledWith(['show', 'HEAD:note.md']);
   });
 
   it('writes the conflict copy with correct filename and content', async () => {
@@ -82,14 +82,14 @@ describe('resolveFile – auto-both', () => {
     );
   });
 
-  it('calls git checkout --ours', async () => {
+  it('calls git checkout --theirs to keep the local (being-replayed) version', async () => {
     mockGit.raw
-      .mockResolvedValueOnce('remote content') // git show
-      .mockResolvedValueOnce(undefined); // git checkout --ours
+      .mockResolvedValueOnce('remote content') // git show HEAD:<file>
+      .mockResolvedValueOnce(undefined); // git checkout --theirs
 
     await resolveFile(mockGit as never, { filePath: 'note.md' }, 'auto-both', TS, FAKE_DIR);
 
-    expect(mockGit.raw).toHaveBeenCalledWith(['checkout', '--ours', 'note.md']);
+    expect(mockGit.raw).toHaveBeenCalledWith(['checkout', '--theirs', 'note.md']);
   });
 
   it('stages both the original file and the conflict copy', async () => {
