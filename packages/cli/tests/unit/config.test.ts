@@ -186,7 +186,7 @@ describe('writeConfig + loadConfig', () => {
     await writeConfig(tempDir, config);
     const raw = await readFile(join(tempDir, '.syncthis.json'), 'utf8');
     const parsed = JSON.parse(raw);
-    // onConflict 'stop' is omitted from written JSON (it's the default)
+    // onConflict 'auto-both' is omitted from written JSON (it's the default)
     const { onConflict: _ignored, ...configWithoutDefault } = config;
     expect(parsed).toEqual(configWithoutDefault);
     expect(parsed.onConflict).toBeUndefined();
@@ -267,14 +267,14 @@ describe('validateConfig – onConflict', () => {
     expect(result.onConflict).toBe('auto-newest');
   });
 
-  it('onConflict: null → valid (default: stop)', () => {
+  it('onConflict: null → valid (default: auto-both)', () => {
     const result = validateConfig({ ...VALID_BASE, onConflict: null });
-    expect(result.onConflict).toBe('stop');
+    expect(result.onConflict).toBe('auto-both');
   });
 
-  it('missing onConflict → valid (default: stop)', () => {
+  it('missing onConflict → valid (default: auto-both)', () => {
     const result = validateConfig(VALID_BASE);
-    expect(result.onConflict).toBe('stop');
+    expect(result.onConflict).toBe('auto-both');
   });
 
   it('onConflict: "invalid" → throws with correct message', () => {

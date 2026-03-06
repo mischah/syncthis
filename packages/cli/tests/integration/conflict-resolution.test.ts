@@ -38,6 +38,9 @@ async function runGit(cwd: string, args: string[], env?: Record<string, string>)
 async function setupIdentity(dir: string): Promise<void> {
   await runGit(dir, ['config', 'user.name', 'Test User']);
   await runGit(dir, ['config', 'user.email', 'test@example.com']);
+  // Prevent global config from blocking commits (GPG signing, interactive editor)
+  await runGit(dir, ['config', 'commit.gpgsign', 'false']);
+  await runGit(dir, ['config', 'core.editor', ':']);
 }
 
 async function initBareRemote(remote: string): Promise<void> {

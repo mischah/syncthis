@@ -81,7 +81,7 @@ export async function daemonStart(flags: DaemonFlags): Promise<void> {
     cron: mergedConfig.cron ?? undefined,
     interval: mergedConfig.interval ?? undefined,
     logLevel: flags.logLevel,
-    onConflict: mergedConfig.onConflict !== 'stop' ? mergedConfig.onConflict : undefined,
+    onConflict: mergedConfig.onConflict !== 'auto-both' ? mergedConfig.onConflict : undefined,
     autostart,
   };
 

@@ -252,10 +252,10 @@ describe('runSyncCycle – conflict strategies', () => {
     );
   });
 
-  it('default onConflict ("stop") → same as stop: no resolver called, notifyConflict with "conflict-unresolved"', async () => {
+  it('onConflict: "stop" → no resolver called, notifyConflict with "conflict-unresolved"', async () => {
     setupConflictScenario();
 
-    const result = await runSyncCycle('/repo', config, logger);
+    const result = await runSyncCycle('/repo', { ...config, onConflict: 'stop' }, logger);
 
     expect(result.status).toBe('conflict');
     expect(mockResolveRebase).not.toHaveBeenCalled();

@@ -26,6 +26,7 @@ Commits, pulls, and pushes your changes on a configurable schedule — no manual
   - [syncthis logs](#syncthis-logs)
   - [syncthis uninstall](#syncthis-uninstall)
 - [How It Works](#how-it-works)
+  - [Conflict Strategies](#conflict-strategies)
 - [Configuration](#configuration)
 - [Logging](#logging)
 - [Development](#development)
@@ -170,6 +171,7 @@ syncthis start --enable-autostart
 | `--enable-autostart` | boolean | Start automatically on login. Default: `false` |
 | `--cron` | string | Cron expression. Persisted in the service definition. |
 | `--interval` | number | Interval in seconds. Persisted in the service definition. |
+| `--on-conflict` | string | Conflict strategy: `auto-both`, `auto-newest`, `stop`. Default: `auto-both` |
 | `--log-level` | string | `debug`, `info`, `warn`, `error`. Default: `info` |
 | `--foreground` | boolean | Run in foreground instead of as a service (see below). |
 
@@ -302,7 +304,7 @@ Scheduled trigger (cron or interval)
         ✅ Done
 ```
 
-**Conflict handling:** syncthis never resolves conflicts automatically. If a rebase conflict occurs, the sync loop stops and exits with code 1. Resolve the conflict manually (`git rebase --continue`), then restart with `syncthis start`.
+**Conflict handling:** When a rebase conflict occurs during `git pull --rebase`, syncthis handles it according to the `onConflict` setting (see [Conflict Strategies](#conflict-strategies) below).
 
 **Offline support:** If the network is unavailable, the local commit succeeds. The pull and push failures are logged as warnings, and the loop continues. Everything syncs on the next successful cycle.
 
@@ -319,6 +321,46 @@ The OS auto-restarts the service on unexpected exits (crash, rebase conflict aft
 
 > **Linux note:** For the service to keep running after logout, user lingering must be enabled: `loginctl enable-linger $USER` (may require sudo). syncthis warns you if this isn't configured.
 
+### Conflict Strategies
+
+Configure how syncthis handles merge conflicts with `onConflict` in `.syncthis.json` or `--on-conflict` on the command line.
+
+#### `auto-both` (default)
+
+Keeps both versions — no data is lost:
+
+- The **original file** retains your local version.
+- The **remote version** is saved alongside it as a conflict copy.
+
+Conflict copy filename pattern: `<name>.conflict-YYYY-MM-DDTHH-MM-SS.<ext>`
+
+Examples:
+
+- `note.md` → `note.conflict-2025-03-04T14-30-00.md`
+- `archive.tar.gz` → `archive.tar.conflict-2025-03-04T14-30-00.gz`
+
+Both files are committed and pushed, so the conflict copy appears on all devices. Review and delete conflict copies manually when you're done.
+
+#### `auto-newest`
+
+Automatically keeps the version with the newer Git commit timestamp. The older version is discarded.
+
+- If timestamps are equal, falls back to `auto-both` (creates a conflict copy).
+- No user action required.
+
+#### `stop`
+
+Stops the sync loop immediately and exits with code 1. Resolve the conflict manually:
+
+```bash
+cd /path/to/vault
+git status            # see conflicting files
+# edit files, then:
+git add -A
+git rebase --continue
+syncthis start
+```
+
 ---
 
 ## Configuration
@@ -330,7 +372,8 @@ The OS auto-restarts the service on unexpected exits (crash, rebase conflict aft
   "remote": "git@github.com:user/vault.git",
   "branch": "main",
   "cron": "*/5 * * * *",
-  "interval": null
+  "interval": null,
+  "onConflict": "auto-both"
 }
 ```
 
@@ -340,6 +383,7 @@ The OS auto-restarts the service on unexpected exits (crash, rebase conflict aft
 | `branch` | string | No | `"main"` | Branch to sync |
 | `cron` | string \| null | No | `"*/5 * * * *"` | Cron expression |
 | `interval` | number \| null | No | `null` | Interval in seconds (≥ 10) |
+| `onConflict` | string | No | `"auto-both"` | Conflict strategy: `auto-both`, `auto-newest`, `stop` |
 
 Exactly one of `cron` or `interval` must be set. CLI flags always override the config file.
 
@@ -457,12 +501,10 @@ These features are intentionally out of scope for now but may be explored later:
 - **File watcher** — Trigger a sync immediately on file changes via `fs.watch`, instead of waiting for the next scheduled cycle.
 - **Log rotation** — Automatically rotate or clean up log files by size or age.
 - **Multi-directory** — A single process that syncs multiple directories at once.
-- **Advanced conflict strategies** — A configurable `"onConflict"` field in `.syncthis.json`:
-  - `"stop"` — Current behavior: exit with code 1 (default).
-  - `"ask"` — Interactive: show a diff and let the user decide per file (`local` / `remote` / `both`), implemented as a `syncthis resolve` command.
-  - `"auto-newest"` — Automatically keep the newer version (timestamp-based).
-  - `"auto-both"` — Keep both versions (e.g. `note.md` + `note.conflict.md`).
-- **Desktop notifications** — Notify on errors or conflicts.
+- **Interactive conflict resolution (`ask`)** — A `syncthis resolve` command that shows a diff per file and lets the user choose `local` / `remote` / `both`. In foreground mode: inline prompt. In daemon mode: fallback to `stop` until resolved.
+- **Desktop notifications** — Notification hooks are in place (log-only in v1). A transport layer (node-notifier, native OS APIs) will be added separately.
+- **Conflict cleanup** — A `syncthis cleanup` command to remove `.conflict-*` files from the directory (conflict copies are intentionally committed and synced to all devices so you can review them anywhere).
+- **Conflict history** — Persistent log of which conflicts occurred, when, and how they were resolved, stored in `.syncthis/conflict-log.json`.
 - **Dry-run mode** — `syncthis start --dry-run` to preview what would happen without making any changes.
 - **Custom commit messages** — A template system for auto-commit message formatting.
 - **Config migration** — Automatically update `.syncthis.json` on schema changes.

@@ -24,7 +24,7 @@ export const DEFAULT_BRANCH = 'main';
 export const DEFAULT_CRON = '*/5 * * * *';
 
 export function createDefaultConfig(remote: string, branch = DEFAULT_BRANCH): SyncthisConfig {
-  return { remote, branch, cron: DEFAULT_CRON, interval: null, onConflict: 'stop' };
+  return { remote, branch, cron: DEFAULT_CRON, interval: null, onConflict: 'auto-both' };
 }
 
 export function validateConfig(config: unknown): SyncthisConfig {
@@ -104,7 +104,7 @@ export function validateConfig(config: unknown): SyncthisConfig {
   }
 
   const VALID_ON_CONFLICT = ['stop', 'auto-both', 'auto-newest'] as const;
-  let onConflict: 'stop' | 'auto-both' | 'auto-newest' = 'stop';
+  let onConflict: 'stop' | 'auto-both' | 'auto-newest' = 'auto-both';
   if (raw.onConflict !== undefined && raw.onConflict !== null) {
     if (!VALID_ON_CONFLICT.includes(raw.onConflict as (typeof VALID_ON_CONFLICT)[number])) {
       throw new Error(
@@ -139,7 +139,7 @@ export async function loadConfig(dirPath: string): Promise<SyncthisConfig> {
 export async function writeConfig(dirPath: string, config: SyncthisConfig): Promise<void> {
   const configPath = join(dirPath, CONFIG_FILENAME);
   const { onConflict, ...rest } = config;
-  const toWrite = onConflict === 'stop' ? rest : config;
+  const toWrite = onConflict === 'auto-both' ? rest : config;
   await writeFile(configPath, `${JSON.stringify(toWrite, null, 2)}\n`, 'utf8');
 }
 
