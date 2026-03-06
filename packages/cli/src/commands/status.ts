@@ -39,6 +39,7 @@ export async function handleStatus(flags: StatusFlags): Promise<void> {
     console.log(`  Branch:   ${config.branch}`);
     const schedule = config.cron ?? `${config.interval}s`;
     console.log(`  Schedule: ${schedule}`);
+    console.log(`  On conflict: ${config.onConflict}`);
     const logPath = join(dirPath, '.syncthis', 'logs', 'syncthis.log');
     console.log(`  Log:      ${logPath}`);
   } catch (err) {

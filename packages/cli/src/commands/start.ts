@@ -14,12 +14,22 @@ export interface StartFlags {
   foreground?: boolean;
   cron?: string;
   interval?: number;
+  onConflict?: string;
   logLevel: string;
   label?: string;
   enableAutostart?: boolean;
 }
 
+const VALID_ON_CONFLICT = ['stop', 'auto-both', 'auto-newest'] as const;
+
 export async function handleStart(flags: StartFlags): Promise<void> {
+  if (flags.onConflict !== undefined && !VALID_ON_CONFLICT.includes(flags.onConflict as never)) {
+    console.error(
+      `Error: Invalid --on-conflict value: '${flags.onConflict}'. Allowed: stop, auto-both, auto-newest`,
+    );
+    process.exit(1);
+  }
+
   if (flags.foreground) {
     await runForeground(flags);
     return;
@@ -32,6 +42,7 @@ export async function handleStart(flags: StartFlags): Promise<void> {
     enableAutostart: flags.enableAutostart,
     cron: flags.cron,
     interval: flags.interval,
+    onConflict: flags.onConflict,
     logLevel: flags.logLevel,
   });
 }
@@ -65,6 +76,7 @@ async function runForeground(flags: StartFlags): Promise<void> {
   const config = mergeWithFlags(rawConfig, {
     cron: flags.cron,
     interval: flags.interval,
+    onConflict: flags.onConflict as (typeof VALID_ON_CONFLICT)[number] | undefined,
   });
 
   // Resolve log level

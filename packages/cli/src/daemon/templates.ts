@@ -15,6 +15,10 @@ function buildProgramArguments(config: DaemonConfig): string[] {
     args.push('--log-level', config.logLevel);
   }
 
+  if (config.onConflict !== undefined && config.onConflict !== 'stop') {
+    args.push('--on-conflict', config.onConflict);
+  }
+
   return args;
 }
 

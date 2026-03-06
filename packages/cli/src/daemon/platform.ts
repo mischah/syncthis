@@ -25,6 +25,7 @@ export interface DaemonConfig {
   cron?: string;
   interval?: number;
   logLevel?: string;
+  onConflict?: string;
   autostart: boolean;
 }
 

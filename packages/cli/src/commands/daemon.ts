@@ -18,6 +18,7 @@ export interface DaemonFlags {
   enableAutostart?: boolean;
   cron?: string;
   interval?: number;
+  onConflict?: string;
   logLevel?: string;
   follow?: boolean;
   lines?: number;
@@ -68,6 +69,7 @@ export async function daemonStart(flags: DaemonFlags): Promise<void> {
   const mergedConfig = mergeWithFlags(syncConfig, {
     cron: flags.cron,
     interval: flags.interval,
+    onConflict: flags.onConflict as 'stop' | 'auto-both' | 'auto-newest' | undefined,
   });
   const autostart = flags.enableAutostart === true || (syncConfig.autostart ?? false);
 
@@ -79,6 +81,7 @@ export async function daemonStart(flags: DaemonFlags): Promise<void> {
     cron: mergedConfig.cron ?? undefined,
     interval: mergedConfig.interval ?? undefined,
     logLevel: flags.logLevel,
+    onConflict: mergedConfig.onConflict !== 'stop' ? mergedConfig.onConflict : undefined,
     autostart,
   };
 

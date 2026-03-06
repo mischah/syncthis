@@ -30,6 +30,7 @@ const COMMAND_HELP: Record<string, string> = {
     --cron              Cron expression for sync schedule
     --interval          Sync interval in seconds
                         (use --cron or --interval, not both)
+    --on-conflict       Conflict strategy: stop, auto-both, auto-newest (default: stop)
     --log-level         Log verbosity: debug, info, warn, error (default: info)
     --label             Custom service name
     --enable-autostart  Start service on login
@@ -100,6 +101,7 @@ const cli = meow(
       --cron              Cron expression for sync schedule
       --interval          Sync interval in seconds
                           (use --cron or --interval, not both)
+      --on-conflict       Conflict strategy: stop, auto-both, auto-newest (default: stop)
       --log-level         Log verbosity: debug, info, warn, error (default: info)
       --label             Custom service name
       --enable-autostart  Start service on login
@@ -139,6 +141,7 @@ const cli = meow(
       branch: { type: 'string' },
       cron: { type: 'string' },
       interval: { type: 'number' },
+      onConflict: { type: 'string' },
       logLevel: { type: 'string', default: 'info' },
       label: { type: 'string' },
       foreground: { type: 'boolean', default: false },
@@ -186,6 +189,7 @@ switch (command) {
       foreground: cli.flags.foreground,
       cron: cli.flags.cron,
       interval: cli.flags.interval,
+      onConflict: cli.flags.onConflict,
       logLevel: cli.flags.logLevel,
       label: cli.flags.label,
       enableAutostart: cli.flags.enableAutostart,
