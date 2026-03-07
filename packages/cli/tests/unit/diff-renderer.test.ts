@@ -2,6 +2,7 @@ import { createTwoFilesPatch } from 'diff';
 import { describe, expect, it } from 'vitest';
 import {
   getContextLines,
+  highlightWordDiff,
   parseUnifiedDiff,
   renderConflictDiff,
 } from '../../src/conflict/diff-renderer.js';
@@ -119,14 +120,14 @@ describe('renderConflictDiff', () => {
 
   it('removed lines contain red ANSI sequences', () => {
     const out = renderConflictDiff('file.txt', local, remote, { terminalWidth: 80 });
-    // chalk.red produces ESC[31m
-    expect(out).toContain('\x1b[31m');
+    // Paired lines use bgRedBright (ESC[101m) for word-level highlighting
+    expect(out).toContain('\x1b[101m');
   });
 
   it('added lines contain green ANSI sequences', () => {
     const out = renderConflictDiff('file.txt', local, remote, { terminalWidth: 80 });
-    // chalk.green produces ESC[32m
-    expect(out).toContain('\x1b[32m');
+    // Paired lines use bgGreenBright (ESC[102m) for word-level highlighting
+    expect(out).toContain('\x1b[102m');
   });
 
   it('no +/- prefixes in output', () => {
@@ -178,5 +179,80 @@ describe('renderConflictDiff', () => {
     const line120 = out120.split('\n')[0];
     expect(line60.length).toBe(60);
     expect(line120.length).toBe(120);
+  });
+
+  it('line pair with one changed word: output contains bgRedBright and bgGreenBright sequences', () => {
+    const out = renderConflictDiff('file.txt', local, remote, { terminalWidth: 80 });
+    // bgRedBright produces ESC[101m, bgGreenBright produces ESC[102m
+    expect(out).toContain('\x1b[101m');
+    expect(out).toContain('\x1b[102m');
+  });
+
+  it('multiple removed followed by multiple added: pairwise word-diff applied', () => {
+    const multiLocal = 'hello world\ngoodbye moon\n';
+    const multiRemote = 'hello earth\ngoodbye sun\n';
+    const out = renderConflictDiff('file.txt', multiLocal, multiRemote, { terminalWidth: 80 });
+    expect(out).toContain('\x1b[101m');
+    expect(out).toContain('\x1b[102m');
+  });
+
+  it('unequal removed/added count: excess lines rendered without word-diff', () => {
+    // 2 removed, 1 added → first pair word-diffed, second removed line plain red
+    const unequalLocal = 'hello world\nextra line\n';
+    const unequalRemote = 'hello earth\n';
+    const out = renderConflictDiff('file.txt', unequalLocal, unequalRemote, { terminalWidth: 80 });
+    // Word-level highlighting present for the pair
+    expect(out).toContain('\x1b[101m');
+    // "extra line" must appear in output (stripped of ANSI)
+    const ESC = '\x1b';
+    const ansiPattern = new RegExp(`${ESC}\\[[0-9;]*m`, 'g');
+    const stripped = out.replace(ansiPattern, '');
+    expect(stripped).toContain('extra line');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// highlightWordDiff
+// ---------------------------------------------------------------------------
+
+describe('highlightWordDiff', () => {
+  it('one word changed: changed word highlighted, unchanged part normal color', () => {
+    const { formattedOld, formattedNew } = highlightWordDiff('hello world', 'hello earth');
+    expect(formattedOld).toContain('\x1b[101m'); // bgRedBright for "world"
+    expect(formattedOld).toContain('\x1b[31m'); // red for "hello "
+    expect(formattedNew).toContain('\x1b[102m'); // bgGreenBright for "earth"
+    expect(formattedNew).toContain('\x1b[32m'); // green for "hello "
+  });
+
+  it('multiple words changed: all changed words highlighted', () => {
+    const { formattedOld, formattedNew } = highlightWordDiff('foo bar baz', 'foo qux baz');
+    expect(formattedOld).toContain('\x1b[101m'); // bgRedBright for "bar"
+    expect(formattedNew).toContain('\x1b[102m'); // bgGreenBright for "qux"
+  });
+
+  it('completely different lines: entire content highlighted', () => {
+    const { formattedOld, formattedNew } = highlightWordDiff('abc', 'xyz');
+    expect(formattedOld).toContain('\x1b[101m'); // bgRedBright
+    expect(formattedNew).toContain('\x1b[102m'); // bgGreenBright
+  });
+
+  it('identical lines: no word-level highlighting, only normal colors', () => {
+    const { formattedOld, formattedNew } = highlightWordDiff('same content', 'same content');
+    expect(formattedOld).not.toContain('\x1b[101m'); // no bgRedBright
+    expect(formattedNew).not.toContain('\x1b[102m'); // no bgGreenBright
+    expect(formattedOld).toContain('\x1b[31m'); // normal red
+    expect(formattedNew).toContain('\x1b[32m'); // normal green
+  });
+
+  it('empty old line: formattedOld is empty, new line highlighted', () => {
+    const { formattedOld, formattedNew } = highlightWordDiff('', 'new content');
+    expect(formattedOld).toBe('');
+    expect(formattedNew).toContain('\x1b[102m'); // bgGreenBright
+  });
+
+  it('empty new line: formattedNew is empty, old line highlighted', () => {
+    const { formattedOld, formattedNew } = highlightWordDiff('old content', '');
+    expect(formattedOld).toContain('\x1b[101m'); // bgRedBright
+    expect(formattedNew).toBe('');
   });
 });

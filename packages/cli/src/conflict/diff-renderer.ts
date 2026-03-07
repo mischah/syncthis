@@ -1,5 +1,5 @@
 import { Chalk } from 'chalk';
-import { createTwoFilesPatch } from 'diff';
+import { createTwoFilesPatch, diffWords } from 'diff';
 
 // Force colors — this function always returns colored terminal output
 const chalk = new Chalk({ level: 3 });
@@ -66,6 +66,28 @@ export function getContextLines(totalLines: number): number | 'full' {
   return 5;
 }
 
+export function highlightWordDiff(
+  oldLine: string,
+  newLine: string,
+): { formattedOld: string; formattedNew: string } {
+  const changes = diffWords(oldLine, newLine);
+  let formattedOld = '';
+  let formattedNew = '';
+
+  for (const change of changes) {
+    if (change.removed) {
+      formattedOld += chalk.bgRedBright.white(change.value);
+    } else if (change.added) {
+      formattedNew += chalk.bgGreenBright.black(change.value);
+    } else {
+      formattedOld += chalk.red(change.value);
+      formattedNew += chalk.green(change.value);
+    }
+  }
+
+  return { formattedOld, formattedNew };
+}
+
 function makeLine(char: string, width: number): string {
   return char.repeat(width);
 }
@@ -125,13 +147,39 @@ export function renderConflictDiff(
     const hunkLine = `${hunkLabel} ${makeLine('─', Math.max(0, remaining))}`;
     output.push(hunkLine);
 
-    for (const line of hunk.lines) {
+    const lines = hunk.lines;
+    let j = 0;
+    while (j < lines.length) {
+      const line = lines[j];
       if (line.type === 'context') {
         output.push(chalk.dim(`  ${line.content}`));
+        j++;
       } else if (line.type === 'removed') {
-        output.push(chalk.red(`  ${line.content}`));
+        const removed: string[] = [];
+        while (j < lines.length && lines[j].type === 'removed') {
+          removed.push(lines[j].content);
+          j++;
+        }
+        const added: string[] = [];
+        while (j < lines.length && lines[j].type === 'added') {
+          added.push(lines[j].content);
+          j++;
+        }
+        const pairCount = Math.min(removed.length, added.length);
+        for (let k = 0; k < pairCount; k++) {
+          const { formattedOld, formattedNew } = highlightWordDiff(removed[k], added[k]);
+          output.push(`  ${formattedOld}`);
+          output.push(`  ${formattedNew}`);
+        }
+        for (let k = pairCount; k < removed.length; k++) {
+          output.push(chalk.red(`  ${removed[k]}`));
+        }
+        for (let k = pairCount; k < added.length; k++) {
+          output.push(chalk.green(`  ${added[k]}`));
+        }
       } else {
         output.push(chalk.green(`  ${line.content}`));
+        j++;
       }
     }
 
