@@ -74,7 +74,21 @@ export async function resolveFile(
   strategy: 'auto-both' | 'auto-newest',
   timestamp: Date,
   dirPath: string,
+  userChoice?: 'local' | 'remote' | 'both',
 ): Promise<{ action: 'ours' | 'theirs' | 'both'; conflictCopy?: string }> {
+  if (userChoice === 'local') {
+    await git.raw(['checkout', '--ours', file.filePath]);
+    await git.add([file.filePath]);
+    return { action: 'ours' };
+  }
+  if (userChoice === 'remote') {
+    await git.raw(['checkout', '--theirs', file.filePath]);
+    await git.add([file.filePath]);
+    return { action: 'theirs' };
+  }
+  if (userChoice === 'both') {
+    return autoBoth(git, file, timestamp, dirPath);
+  }
   if (strategy === 'auto-both') {
     return autoBoth(git, file, timestamp, dirPath);
   }
