@@ -9,12 +9,14 @@ export interface SyncthisConfig {
   interval: number | null;
   daemonLabel?: string | null;
   autostart?: boolean;
+  onConflict: 'stop' | 'auto-both' | 'auto-newest';
 }
 
 export interface CliFlags {
   branch?: string;
   cron?: string;
   interval?: number;
+  onConflict?: 'stop' | 'auto-both' | 'auto-newest';
 }
 
 const CONFIG_FILENAME = '.syncthis.json';
@@ -22,7 +24,7 @@ export const DEFAULT_BRANCH = 'main';
 export const DEFAULT_CRON = '*/5 * * * *';
 
 export function createDefaultConfig(remote: string, branch = DEFAULT_BRANCH): SyncthisConfig {
-  return { remote, branch, cron: DEFAULT_CRON, interval: null };
+  return { remote, branch, cron: DEFAULT_CRON, interval: null, onConflict: 'auto-both' };
 }
 
 export function validateConfig(config: unknown): SyncthisConfig {
@@ -101,7 +103,18 @@ export function validateConfig(config: unknown): SyncthisConfig {
     autostart = raw.autostart;
   }
 
-  return { remote: raw.remote.trim(), branch, cron, interval, daemonLabel, autostart };
+  const VALID_ON_CONFLICT = ['stop', 'auto-both', 'auto-newest'] as const;
+  let onConflict: 'stop' | 'auto-both' | 'auto-newest' = 'auto-both';
+  if (raw.onConflict !== undefined && raw.onConflict !== null) {
+    if (!VALID_ON_CONFLICT.includes(raw.onConflict as (typeof VALID_ON_CONFLICT)[number])) {
+      throw new Error(
+        `Invalid onConflict value: '${raw.onConflict}'. Allowed: stop, auto-both, auto-newest`,
+      );
+    }
+    onConflict = raw.onConflict as 'stop' | 'auto-both' | 'auto-newest';
+  }
+
+  return { remote: raw.remote.trim(), branch, cron, interval, daemonLabel, autostart, onConflict };
 }
 
 export async function loadConfig(dirPath: string): Promise<SyncthisConfig> {
@@ -125,7 +138,9 @@ export async function loadConfig(dirPath: string): Promise<SyncthisConfig> {
 
 export async function writeConfig(dirPath: string, config: SyncthisConfig): Promise<void> {
   const configPath = join(dirPath, CONFIG_FILENAME);
-  await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
+  const { onConflict, ...rest } = config;
+  const toWrite = onConflict === 'auto-both' ? rest : config;
+  await writeFile(configPath, `${JSON.stringify(toWrite, null, 2)}\n`, 'utf8');
 }
 
 export function mergeWithFlags(config: SyncthisConfig, flags: CliFlags): SyncthisConfig {
@@ -143,6 +158,10 @@ export function mergeWithFlags(config: SyncthisConfig, flags: CliFlags): Syncthi
 
   if (flags.branch !== undefined) {
     merged.branch = flags.branch;
+  }
+
+  if (flags.onConflict !== undefined) {
+    merged.onConflict = flags.onConflict;
   }
 
   return merged;

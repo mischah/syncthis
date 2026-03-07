@@ -185,7 +185,11 @@ describe('writeConfig + loadConfig', () => {
     const config = createDefaultConfig(VALID_REMOTE);
     await writeConfig(tempDir, config);
     const raw = await readFile(join(tempDir, '.syncthis.json'), 'utf8');
-    expect(JSON.parse(raw)).toEqual(config);
+    const parsed = JSON.parse(raw);
+    // onConflict 'auto-both' is omitted from written JSON (it's the default)
+    const { onConflict: _ignored, ...configWithoutDefault } = config;
+    expect(parsed).toEqual(configWithoutDefault);
+    expect(parsed.onConflict).toBeUndefined();
     expect(raw).toContain('\n');
     expect(raw).toContain('  '); // indented
   });
@@ -211,6 +215,7 @@ describe('mergeWithFlags', () => {
     branch: 'main',
     cron: '*/5 * * * *',
     interval: null,
+    onConflict: 'stop',
   };
 
   it('returns config unchanged when no flags are provided', () => {
@@ -241,5 +246,66 @@ describe('mergeWithFlags', () => {
     expect(base.branch).toBe('main');
     expect(base.cron).toBe('*/5 * * * *');
     expect(base.interval).toBeNull();
+  });
+});
+
+describe('validateConfig – onConflict', () => {
+  const VALID_BASE = { remote: VALID_REMOTE, cron: '*/5 * * * *' };
+
+  it('onConflict: "stop" → valid', () => {
+    const result = validateConfig({ ...VALID_BASE, onConflict: 'stop' });
+    expect(result.onConflict).toBe('stop');
+  });
+
+  it('onConflict: "auto-both" → valid', () => {
+    const result = validateConfig({ ...VALID_BASE, onConflict: 'auto-both' });
+    expect(result.onConflict).toBe('auto-both');
+  });
+
+  it('onConflict: "auto-newest" → valid', () => {
+    const result = validateConfig({ ...VALID_BASE, onConflict: 'auto-newest' });
+    expect(result.onConflict).toBe('auto-newest');
+  });
+
+  it('onConflict: null → valid (default: auto-both)', () => {
+    const result = validateConfig({ ...VALID_BASE, onConflict: null });
+    expect(result.onConflict).toBe('auto-both');
+  });
+
+  it('missing onConflict → valid (default: auto-both)', () => {
+    const result = validateConfig(VALID_BASE);
+    expect(result.onConflict).toBe('auto-both');
+  });
+
+  it('onConflict: "invalid" → throws with correct message', () => {
+    expect(() => validateConfig({ ...VALID_BASE, onConflict: 'invalid' })).toThrow(
+      "Invalid onConflict value: 'invalid'. Allowed: stop, auto-both, auto-newest",
+    );
+  });
+
+  it('onConflict: "ask" → throws (not yet implemented)', () => {
+    expect(() => validateConfig({ ...VALID_BASE, onConflict: 'ask' })).toThrow(
+      "Invalid onConflict value: 'ask'. Allowed: stop, auto-both, auto-newest",
+    );
+  });
+});
+
+describe('mergeWithFlags – onConflict', () => {
+  const base: SyncthisConfig = {
+    remote: VALID_REMOTE,
+    branch: 'main',
+    cron: '*/5 * * * *',
+    interval: null,
+    onConflict: 'auto-both',
+  };
+
+  it('onConflict flag overrides config value', () => {
+    const merged = mergeWithFlags(base, { onConflict: 'auto-newest' });
+    expect(merged.onConflict).toBe('auto-newest');
+  });
+
+  it('config onConflict is preserved when flag is absent', () => {
+    const merged = mergeWithFlags(base, {});
+    expect(merged.onConflict).toBe('auto-both');
   });
 });

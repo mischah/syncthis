@@ -15,11 +15,22 @@ vi.mock('simple-git', () => ({
   default: vi.fn(() => mockGit),
 }));
 
+const mockResolveRebase = vi.hoisted(() => vi.fn());
+vi.mock('../../src/conflict/resolver.js', () => ({
+  resolveRebase: mockResolveRebase,
+}));
+
+const mockNotifyConflict = vi.hoisted(() => vi.fn());
+vi.mock('../../src/conflict/notify.js', () => ({
+  notifyConflict: mockNotifyConflict,
+}));
+
 const config: SyncthisConfig = {
   remote: 'git@github.com:user/vault.git',
   branch: 'main',
   cron: '*/5 * * * *',
   interval: null,
+  onConflict: 'stop',
 };
 
 const logger: Logger = {
@@ -35,6 +46,7 @@ beforeEach(() => {
   mockGit.commit.mockResolvedValue(undefined);
   mockGit.pull.mockResolvedValue(undefined);
   mockGit.push.mockResolvedValue(undefined);
+  mockNotifyConflict.mockReturnValue(undefined);
 });
 
 describe('runSyncCycle', () => {
@@ -117,7 +129,7 @@ describe('runSyncCycle', () => {
     vi.useRealTimers();
   });
 
-  it('returns { status: "conflict" } and logs error when rebase detects conflicts', async () => {
+  it('returns { status: "conflict" } and calls notifyConflict when rebase detects conflicts', async () => {
     mockGit.raw
       .mockResolvedValueOnce('M file1.md\n') // git status --porcelain
       .mockResolvedValueOnce('abc1234\n') // rev-parse HEAD (before pull)
@@ -128,7 +140,10 @@ describe('runSyncCycle', () => {
 
     expect(result.status).toBe('conflict');
     expect(result.filesChanged).toBe(1);
-    expect(logger.error).toHaveBeenCalled();
+    expect(mockNotifyConflict).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'conflict-unresolved' }),
+      logger,
+    );
     expect(logger.warn).not.toHaveBeenCalled();
   });
 
@@ -150,5 +165,103 @@ describe('runSyncCycle', () => {
     await runSyncCycle('/repo', config, logger);
 
     expect(logger.info).toHaveBeenCalledWith('Sync cycle: 1 files changed, committed, pushed.');
+  });
+});
+
+describe('runSyncCycle – conflict strategies', () => {
+  function setupConflictScenario() {
+    mockGit.raw
+      .mockResolvedValueOnce('M file1.md\n') // git status --porcelain
+      .mockResolvedValueOnce('abc1234\n') // rev-parse HEAD (before pull)
+      .mockResolvedValueOnce('UU file1.md\n'); // post-pull status
+    mockGit.pull.mockRejectedValue(new Error('CONFLICTS'));
+  }
+
+  it('onConflict: "stop" → notifyConflict with type "conflict-unresolved", returns { status: "conflict" }, no push', async () => {
+    setupConflictScenario();
+
+    const result = await runSyncCycle('/repo', { ...config, onConflict: 'stop' }, logger);
+
+    expect(result.status).toBe('conflict');
+    expect(mockResolveRebase).not.toHaveBeenCalled();
+    expect(mockGit.push).not.toHaveBeenCalled();
+    expect(mockNotifyConflict).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'conflict-unresolved', strategy: 'stop' }),
+      logger,
+    );
+  });
+
+  it('onConflict: "auto-both" → resolveRebase called, push, returns { status: "synced", conflictCopies }', async () => {
+    setupConflictScenario();
+    mockResolveRebase.mockResolvedValue({
+      status: 'resolved',
+      resolvedFiles: ['file1.md'],
+      conflictCopies: ['file1.conflict-2025-03-04T14-30-00.md'],
+      rebaseSteps: 1,
+    });
+
+    const result = await runSyncCycle('/repo', { ...config, onConflict: 'auto-both' }, logger);
+
+    expect(result.status).toBe('synced');
+    expect(result.conflictCopies).toEqual(['file1.conflict-2025-03-04T14-30-00.md']);
+    expect(mockResolveRebase).toHaveBeenCalledWith(mockGit, 'auto-both', '/repo', logger);
+    expect(mockGit.push).toHaveBeenCalledWith('origin', 'main');
+    expect(mockNotifyConflict).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'conflict-resolved', strategy: 'auto-both' }),
+      logger,
+    );
+  });
+
+  it('onConflict: "auto-newest" → resolveRebase called with "auto-newest", push, returns { status: "synced" }', async () => {
+    setupConflictScenario();
+    mockResolveRebase.mockResolvedValue({
+      status: 'resolved',
+      resolvedFiles: ['file1.md'],
+      conflictCopies: [],
+      rebaseSteps: 1,
+    });
+
+    const result = await runSyncCycle('/repo', { ...config, onConflict: 'auto-newest' }, logger);
+
+    expect(result.status).toBe('synced');
+    expect(mockResolveRebase).toHaveBeenCalledWith(mockGit, 'auto-newest', '/repo', logger);
+    expect(mockGit.push).toHaveBeenCalledWith('origin', 'main');
+    expect(mockNotifyConflict).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'conflict-resolved', strategy: 'auto-newest' }),
+      logger,
+    );
+  });
+
+  it('resolver returns "aborted" → returns { status: "conflict", error: "Rebase limit reached" }, no push', async () => {
+    setupConflictScenario();
+    mockResolveRebase.mockResolvedValue({
+      status: 'aborted',
+      resolvedFiles: ['file1.md'],
+      conflictCopies: [],
+      rebaseSteps: 21,
+    });
+
+    const result = await runSyncCycle('/repo', { ...config, onConflict: 'auto-both' }, logger);
+
+    expect(result.status).toBe('conflict');
+    expect(result.error).toBe('Rebase limit reached');
+    expect(mockGit.push).not.toHaveBeenCalled();
+    expect(mockNotifyConflict).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'conflict-limit-reached' }),
+      logger,
+    );
+  });
+
+  it('onConflict: "stop" → no resolver called, notifyConflict with "conflict-unresolved"', async () => {
+    setupConflictScenario();
+
+    const result = await runSyncCycle('/repo', { ...config, onConflict: 'stop' }, logger);
+
+    expect(result.status).toBe('conflict');
+    expect(mockResolveRebase).not.toHaveBeenCalled();
+    expect(mockNotifyConflict).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'conflict-unresolved' }),
+      logger,
+    );
   });
 });
