@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { writeFile } from 'node:fs/promises';
+import { access, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { SimpleGit } from 'simple-git';
 import type { Logger } from '../logger.js';
@@ -93,6 +93,23 @@ export async function resolveFile(
     return autoBoth(git, file, timestamp, dirPath);
   }
   return autoNewest(git, file, timestamp, dirPath);
+}
+
+export async function isRebaseInProgress(git: SimpleGit): Promise<boolean> {
+  const gitDir = (await git.revparse(['--git-dir'])).trim();
+  const rebaseMerge = path.join(gitDir, 'rebase-merge');
+  const rebaseApply = path.join(gitDir, 'rebase-apply');
+
+  const exists = async (p: string): Promise<boolean> => {
+    try {
+      await access(p);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  return (await exists(rebaseMerge)) || (await exists(rebaseApply));
 }
 
 export async function resolveRebase(

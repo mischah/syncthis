@@ -277,15 +277,14 @@ describe('validateConfig – onConflict', () => {
     expect(result.onConflict).toBe('auto-both');
   });
 
-  it('onConflict: "invalid" → throws with correct message', () => {
-    expect(() => validateConfig({ ...VALID_BASE, onConflict: 'invalid' })).toThrow(
-      "Invalid onConflict value: 'invalid'. Allowed: stop, auto-both, auto-newest",
-    );
+  it('onConflict: "ask" → valid', () => {
+    const result = validateConfig({ ...VALID_BASE, onConflict: 'ask' });
+    expect(result.onConflict).toBe('ask');
   });
 
-  it('onConflict: "ask" → throws (not yet implemented)', () => {
-    expect(() => validateConfig({ ...VALID_BASE, onConflict: 'ask' })).toThrow(
-      "Invalid onConflict value: 'ask'. Allowed: stop, auto-both, auto-newest",
+  it('onConflict: "invalid" → throws with correct message', () => {
+    expect(() => validateConfig({ ...VALID_BASE, onConflict: 'invalid' })).toThrow(
+      "Invalid onConflict value: 'invalid'. Allowed: stop, auto-both, auto-newest, ask",
     );
   });
 });
