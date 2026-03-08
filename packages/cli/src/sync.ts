@@ -1,13 +1,15 @@
 import simpleGit from 'simple-git';
 import type { SyncthisConfig } from './config.js';
+import { resolveInteractive } from './conflict/interactive.js';
 import { notifyConflict } from './conflict/notify.js';
-import { resolveRebase } from './conflict/resolver.js';
+import { getConflictFiles, isRebaseInProgress, resolveRebase } from './conflict/resolver.js';
 import type { Logger } from './logger.js';
 
 export interface SyncResult {
   status: 'no-changes' | 'pulled' | 'synced' | 'conflict' | 'network-error';
   filesChanged?: number;
   conflictCopies?: string[];
+  interactiveDecisions?: Array<{ filePath: string; choice: string }>;
   error?: string;
 }
 
@@ -31,6 +33,13 @@ export async function runSyncCycle(
   logger: Logger,
 ): Promise<SyncResult> {
   const git = simpleGit(dirPath);
+
+  // Check if rebase is in progress from a previous conflict
+  const rebaseInProgress = await isRebaseInProgress(git);
+  if (rebaseInProgress) {
+    logger.info('Rebase in progress, skipping sync cycle. Run "syncthis resolve" to continue.');
+    return { status: 'conflict', error: 'Rebase in progress' };
+  }
 
   // Step 1: Check for local changes
   const statusOutput = await git.raw(['status', '--porcelain']);
@@ -92,6 +101,93 @@ export async function runSyncCycle(
           logger,
         );
         return { status: 'conflict', error: 'Rebase limit reached', filesChanged };
+      }
+
+      if (config.onConflict === 'ask') {
+        const isInteractive = process.stdin.isTTY === true;
+
+        if (!isInteractive) {
+          logger.error(
+            `Rebase conflict detected in: ${conflictedFiles.join(', ')}. No interactive terminal available. Run: syncthis resolve --path ${dirPath}`,
+          );
+          notifyConflict(
+            {
+              type: 'conflict-unresolved',
+              strategy: 'ask',
+              files: conflictedFiles,
+              dirPath,
+              message: `Rebase conflict detected in: ${conflictedFiles.join(', ')}. No interactive terminal available. Run: syncthis resolve --path ${dirPath}`,
+            },
+            logger,
+          );
+          return { status: 'conflict', error: 'Awaiting interactive resolution', filesChanged };
+        }
+
+        // Interactive mode: resolve conflicts in a loop (handles cascading conflicts)
+        let currentFiles = conflictedFiles.map((fp) => ({ filePath: fp }));
+        const allDecisions: Array<{ filePath: string; choice: string }> = [];
+        const allConflictCopies: string[] = [];
+        let steps = 0;
+        const maxSteps = 20;
+
+        while (currentFiles.length > 0) {
+          steps++;
+          if (steps > maxSteps) {
+            logger.error(
+              `Too many consecutive conflicts during rebase (${maxSteps}+). Interactive resolution aborted. Run 'git rebase --abort' to reset.`,
+            );
+            await git.raw(['rebase', '--abort']);
+            return { status: 'conflict', error: 'Rebase limit reached', filesChanged };
+          }
+
+          const result = await resolveInteractive({ git, files: currentFiles, logger, dirPath });
+
+          if (result.status !== 'resolved') {
+            notifyConflict(
+              {
+                type: 'conflict-unresolved',
+                strategy: 'ask',
+                files: conflictedFiles,
+                dirPath,
+                message: 'Conflict resolution cancelled/aborted by user.',
+              },
+              logger,
+            );
+            return { status: 'conflict', error: 'Resolution cancelled/aborted', filesChanged };
+          }
+
+          allDecisions.push(...result.decisions);
+          allConflictCopies.push(...result.conflictCopies);
+
+          await git.raw(['rebase', '--continue']);
+          const moreConflicts = await getConflictFiles(git);
+          currentFiles = moreConflicts;
+        }
+
+        notifyConflict(
+          {
+            type: 'conflict-resolved',
+            strategy: 'ask',
+            files: allDecisions.map((d) => d.filePath),
+            dirPath,
+            message: `Conflicts interactively resolved: ${allDecisions.map((d) => d.filePath).join(', ')}`,
+          },
+          logger,
+        );
+
+        try {
+          await git.push('origin', config.branch);
+          logger.info(`Sync cycle: ${filesChanged} files changed, committed, pushed.`);
+          return {
+            status: 'synced',
+            filesChanged,
+            interactiveDecisions: allDecisions,
+            conflictCopies: allConflictCopies,
+          };
+        } catch (pushErr) {
+          logger.warn(`Push failed: ${String(pushErr)}. Will retry next cycle.`);
+          return { status: 'network-error', error: String(pushErr), filesChanged };
+        }
       }
 
       notifyConflict(

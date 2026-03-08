@@ -2,7 +2,7 @@ import type { Logger } from '../logger.js';
 
 export interface ConflictNotification {
   type: 'conflict-unresolved' | 'conflict-resolved' | 'conflict-limit-reached';
-  strategy: 'stop' | 'auto-both' | 'auto-newest';
+  strategy: 'stop' | 'auto-both' | 'auto-newest' | 'ask';
   files: string[];
   dirPath: string;
   message: string;
