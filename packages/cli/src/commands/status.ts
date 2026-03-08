@@ -2,6 +2,7 @@ import { access } from 'node:fs/promises';
 import { join } from 'node:path';
 import simpleGit from 'simple-git';
 import { type SyncthisConfig, loadConfig } from '../config.js';
+import { isRebaseInProgress } from '../conflict/resolver.js';
 import { getPlatform } from '../daemon/platform.js';
 import { generateServiceName } from '../daemon/service-name.js';
 import { isLocked, readLockFile } from '../lock.js';
@@ -78,6 +79,12 @@ export async function handleStatus(flags: StatusFlags): Promise<void> {
     const statusOutput = await git.raw(['status', '--porcelain']);
     const uncommittedCount = statusOutput.split('\n').filter(Boolean).length;
     console.log(`  Uncommitted changes: ${uncommittedCount}`);
+
+    const rebaseInProgress = await isRebaseInProgress(git);
+    if (rebaseInProgress) {
+      console.log('  Sync:                conflict (rebase in progress)');
+      console.log(`  Run:                 syncthis resolve --path ${dirPath}`);
+    }
 
     const logResult = await git.log({ maxCount: 1 });
     if (logResult.latest !== null) {

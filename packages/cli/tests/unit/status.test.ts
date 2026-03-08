@@ -38,6 +38,11 @@ vi.mock('../../src/daemon/service-name.js', () => ({
   generateServiceName: mockGenerateServiceName,
 }));
 
+const mockIsRebaseInProgress = vi.hoisted(() => vi.fn());
+vi.mock('../../src/conflict/resolver.js', () => ({
+  isRebaseInProgress: mockIsRebaseInProgress,
+}));
+
 import { handleStatus } from '../../src/commands/status.js';
 
 describe('handleStatus', () => {
@@ -50,6 +55,7 @@ describe('handleStatus', () => {
     mockGetPlatform.mockImplementation(() => {
       throw new Error('Unsupported platform');
     });
+    mockIsRebaseInProgress.mockResolvedValue(false);
   });
 
   it('prints "Not initialized" when .syncthis.json does not exist', async () => {
