@@ -21,6 +21,15 @@ npm run lint:fix
 
 All three must pass.
 
+## Conflict Resolution Semantics
+
+During `git pull --rebase`, `--ours`/`--theirs` are **swapped** relative to intuition:
+
+- `--ours` = upstream HEAD (the other device's version, already committed to the branch)
+- `--theirs` = REBASE_HEAD (the local device's commit being replayed)
+
+So in `resolveFile`: `'local'` → `--ours` → **remote device's version**; `'remote'` → `--theirs` → **local device's version**. The UI labels match stage numbers (`:2:` = ours, `:3:` = theirs), not user-facing "local/remote" intuition.
+
 ## Commits
 
 Do NOT create commits. After successful validation, suggest a Conventional Commit message (english) for the user to use. Keep the subject line concise. Body is optional — only add it when the "why" isn't obvious from the subject.
