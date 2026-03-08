@@ -96,7 +96,7 @@ export async function resolveFile(
 }
 
 export async function isRebaseInProgress(git: SimpleGit): Promise<boolean> {
-  const gitDir = (await git.revparse(['--git-dir'])).trim();
+  const gitDir = (await git.revparse(['--absolute-git-dir'])).trim();
   const rebaseMerge = path.join(gitDir, 'rebase-merge');
   const rebaseApply = path.join(gitDir, 'rebase-apply');
 

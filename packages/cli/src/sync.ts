@@ -159,7 +159,11 @@ export async function runSyncCycle(
           allDecisions.push(...result.decisions);
           allConflictCopies.push(...result.conflictCopies);
 
-          await git.raw(['rebase', '--continue']);
+          try {
+            await git.raw(['rebase', '--continue']);
+          } catch {
+            // Next commit may also have conflicts — detected by getConflictFiles below
+          }
           const moreConflicts = await getConflictFiles(git);
           currentFiles = moreConflicts;
         }

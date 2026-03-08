@@ -74,7 +74,11 @@ export async function handleResolve(options: ResolveOptions): Promise<void> {
 
     totalResolved += result.resolvedFiles.length;
 
-    await git.raw(['rebase', '--continue']);
+    try {
+      await git.raw(['rebase', '--continue']);
+    } catch {
+      // Next commit may also have conflicts — detected by getConflictFiles on next iteration
+    }
   }
 
   try {
