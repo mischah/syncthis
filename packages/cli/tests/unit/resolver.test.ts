@@ -43,7 +43,11 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockGit.add.mockResolvedValue(undefined);
   mockGit.raw.mockResolvedValue('');
+  mockGit.revparse.mockResolvedValue('.git');
   mockWriteFile.mockResolvedValue(undefined);
+  // Default: all paths "exist" (access resolves) → isRebaseInProgress returns true by default.
+  // Tests that expect the post-loop guard to be a no-op should add two mockRejectedValueOnce
+  // calls to make isRebaseInProgress return false (no rebase dirs found).
   mockAccess.mockResolvedValue(undefined);
 });
 
@@ -377,5 +381,39 @@ describe('resolveRebase', () => {
 
     expect(result.status).toBe('resolved');
     expect(result.rebaseSteps).toBe(1);
+  });
+
+  it('rebase --continue throws but post-loop continue finishes it → returns resolved', async () => {
+    // in-loop rebase --continue throws; post-loop guard retries and succeeds
+    const logger = makeLogger();
+    mockGit.raw
+      .mockResolvedValueOnce('note.md\n') // getConflictFiles → has conflict
+      .mockResolvedValueOnce('remote content') // git show
+      .mockResolvedValueOnce(undefined) // checkout --theirs
+      .mockRejectedValueOnce(new Error('rebase error')) // in-loop rebase --continue throws
+      .mockResolvedValueOnce('') // getConflictFiles → no more conflicts → break
+      .mockResolvedValueOnce(undefined); // post-loop rebase --continue succeeds
+
+    const result = await resolveRebase(mockGit as never, 'auto-both', FAKE_DIR, logger);
+
+    expect(result.status).toBe('resolved');
+    expect(result.resolvedFiles).toEqual(['note.md']);
+  });
+
+  it('rebase --continue throws and post-loop retry also fails → returns stopped', async () => {
+    // rebase is stuck: both in-loop and post-loop rebase --continue throw
+    const logger = makeLogger();
+    mockGit.raw
+      .mockResolvedValueOnce('note.md\n') // getConflictFiles → has conflict
+      .mockResolvedValueOnce('remote content') // git show
+      .mockResolvedValueOnce(undefined) // checkout --theirs
+      .mockRejectedValueOnce(new Error('rebase error')) // in-loop rebase --continue throws
+      .mockResolvedValueOnce('') // getConflictFiles → no more conflicts → break
+      .mockRejectedValueOnce(new Error('still broken')); // post-loop rebase --continue throws
+
+    const result = await resolveRebase(mockGit as never, 'auto-both', FAKE_DIR, logger);
+
+    expect(result.status).toBe('stopped');
+    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('Failed to finalize rebase'));
   });
 });

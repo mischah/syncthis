@@ -154,5 +154,19 @@ export async function resolveRebase(
     }
   }
 
+  // The loop exits when getConflictFiles() returns empty, but if rebase --continue threw on
+  // the previous iteration, the rebase may still be in progress with staged changes pending.
+  if (await isRebaseInProgress(git)) {
+    try {
+      await git.raw(['rebase', '--continue']);
+    } catch (err) {
+      if (await isRebaseInProgress(git)) {
+        logger.error(`Failed to finalize rebase after conflict resolution: ${String(err)}`);
+        return { status: 'stopped', resolvedFiles, conflictCopies, rebaseSteps: steps };
+      }
+      // Rebase completed despite the throw (simple-git noise) — fall through to 'resolved'
+    }
+  }
+
   return { status: 'resolved', resolvedFiles, conflictCopies, rebaseSteps: steps };
 }
