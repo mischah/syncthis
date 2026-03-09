@@ -63,7 +63,10 @@ export async function daemonStart(flags: DaemonFlags): Promise<void> {
     return;
   }
 
-  const serviceName = generateServiceName(dirPath, flags.label);
+  const serviceName = generateServiceName(
+    dirPath,
+    flags.label ?? syncConfig.daemonLabel ?? undefined,
+  );
   const platform = getPlatformOrExit();
   const currentStatus = await platform.status(serviceName);
 
@@ -98,9 +101,7 @@ export async function daemonStart(flags: DaemonFlags): Promise<void> {
   const labelPart = serviceName.replace('com.syncthis.', '');
   try {
     const configToWrite = { ...mergedConfig, autostart };
-    if (!syncConfig.daemonLabel) {
-      configToWrite.daemonLabel = labelPart;
-    }
+    configToWrite.daemonLabel = labelPart;
     await writeConfig(dirPath, configToWrite);
   } catch {
     // Non-fatal: config write failed

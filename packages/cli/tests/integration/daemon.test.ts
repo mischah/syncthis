@@ -241,6 +241,26 @@ describe('daemonStart', () => {
     );
   });
 
+  it('uses config daemonLabel for service name when no --label flag is passed', async () => {
+    mockLoadConfig.mockResolvedValue({ ...baseConfig, daemonLabel: 'my-obsidian-notes' });
+    const platform = makeMockPlatform({
+      status: vi
+        .fn()
+        .mockResolvedValueOnce({ state: 'not-installed' } as DaemonStatus)
+        .mockResolvedValueOnce({ state: 'running', pid: 1 } as DaemonStatus),
+    });
+    mockGetPlatform.mockReturnValue(platform);
+
+    vi.useFakeTimers();
+    const promise = daemonStart({ path: tempDir });
+    await vi.runAllTimersAsync();
+    await promise;
+
+    expect(platform.install).toHaveBeenCalledWith(
+      expect.objectContaining({ serviceName: 'com.syncthis.my-obsidian-notes' }),
+    );
+  });
+
   it('calls enableAutostart when --enable-autostart flag is set', async () => {
     mockLoadConfig.mockResolvedValue({ ...baseConfig });
     const platform = makeMockPlatform({
