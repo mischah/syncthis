@@ -69,9 +69,12 @@ const COMMAND_HELP: Record<string, string> = {
 `,
   list: `
   Usage
-    $ syncthis list
+    $ syncthis list [options]
 
   List all registered syncthis services.
+
+  Options
+    --stale     Show only stale services (target directory missing)
 `,
   logs: `
   Usage
@@ -92,6 +95,7 @@ const COMMAND_HELP: Record<string, string> = {
 
   Options
     --label     Custom service name
+    --stale     Remove all stale services (target directory missing)
     --path      Target directory (default: current directory)
 `,
 };
@@ -127,6 +131,7 @@ const cli = meow(
       resolve         Interactively resolve rebase conflicts
 
       list            List all registered services
+      --stale             Show only stale services
 
       logs            Show sync logs
       --follow, -f        Follow log output
@@ -134,6 +139,7 @@ const cli = meow(
 
       uninstall       Remove background sync service
       --label             Custom service name
+      --stale             Remove all stale services
 
   Global options
     --path              Target directory (default: current directory)
@@ -166,6 +172,7 @@ const cli = meow(
       label: { type: 'string' },
       foreground: { type: 'boolean', default: false },
       enableAutostart: { type: 'boolean', default: false },
+      stale: { type: 'boolean', default: false },
       follow: { type: 'boolean', default: false, shortFlag: 'f' },
       lines: { type: 'number', default: 50, shortFlag: 'n' },
       help: { type: 'boolean', default: false, shortFlag: 'h' },
@@ -235,7 +242,7 @@ switch (command) {
     break;
   case 'list':
     if (showCommandHelp('list')) break;
-    await handleList();
+    await handleList({ stale: cli.flags.stale });
     break;
   case 'logs':
     if (showCommandHelp('logs')) break;
@@ -250,6 +257,7 @@ switch (command) {
     await daemonUninstall({
       path: cli.flags.path,
       label: cli.flags.label,
+      stale: cli.flags.stale,
     });
     break;
   case undefined:

@@ -379,6 +379,68 @@ describe('handleList', () => {
     expect(logCalls).toContain('user-vault');
     expect(logCalls).toContain('running');
   });
+
+  it('--stale filters to services with non-existent dirPath', async () => {
+    const daemons: DaemonInfo[] = [
+      {
+        serviceName: 'com.syncthis.valid',
+        label: 'valid',
+        dirPath: tempDir,
+        state: 'stopped',
+        autostart: false,
+        schedule: '',
+      },
+      {
+        serviceName: 'com.syncthis.stale-one',
+        label: 'stale-one',
+        dirPath: '/nonexistent/path/that/does/not/exist',
+        state: 'stopped',
+        autostart: false,
+        schedule: '',
+      },
+      {
+        serviceName: 'com.syncthis.no-path',
+        label: 'no-path',
+        dirPath: '',
+        state: 'stopped',
+        autostart: false,
+        schedule: '',
+      },
+    ];
+    const platform = makeMockPlatform({
+      listAll: vi.fn().mockResolvedValue(daemons),
+    });
+    mockGetPlatform.mockReturnValue(platform);
+
+    await handleList({ stale: true });
+
+    const logCalls = vi.mocked(console.log).mock.calls.flat().join('\n');
+    expect(logCalls).toContain('stale-one');
+    expect(logCalls).toContain('no-path');
+    expect(logCalls).not.toContain('valid');
+  });
+
+  it('--stale prints message when no stale services found', async () => {
+    const daemons: DaemonInfo[] = [
+      {
+        serviceName: 'com.syncthis.valid',
+        label: 'valid',
+        dirPath: tempDir,
+        state: 'running',
+        pid: 1,
+        autostart: false,
+        schedule: '',
+      },
+    ];
+    const platform = makeMockPlatform({
+      listAll: vi.fn().mockResolvedValue(daemons),
+    });
+    mockGetPlatform.mockReturnValue(platform);
+
+    await handleList({ stale: true });
+
+    expect(console.log).toHaveBeenCalledWith('No stale services found.');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -397,6 +459,37 @@ describe('daemonUninstall', () => {
 
     expect(platform.uninstall).not.toHaveBeenCalled();
     expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Nothing to uninstall'));
+  });
+
+  it('--stale removes all stale services', async () => {
+    const daemons: DaemonInfo[] = [
+      {
+        serviceName: 'com.syncthis.valid',
+        label: 'valid',
+        dirPath: tempDir,
+        state: 'stopped',
+        autostart: false,
+        schedule: '',
+      },
+      {
+        serviceName: 'com.syncthis.stale-test',
+        label: 'stale-test',
+        dirPath: '/nonexistent/tmp/path',
+        state: 'stopped',
+        autostart: false,
+        schedule: '',
+      },
+    ];
+    const platform = makeMockPlatform({
+      listAll: vi.fn().mockResolvedValue(daemons),
+    });
+    mockGetPlatform.mockReturnValue(platform);
+
+    await daemonUninstall({ path: tempDir, stale: true });
+
+    expect(platform.uninstall).toHaveBeenCalledOnce();
+    expect(platform.uninstall).toHaveBeenCalledWith('com.syncthis.stale-test');
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Removed stale service'));
   });
 
   it('uninstalls an installed service and clears daemonLabel from config', async () => {

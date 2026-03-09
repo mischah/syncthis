@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { readFile } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { loadConfig, mergeWithFlags, writeConfig } from '../config.js';
 import {
@@ -23,6 +23,7 @@ export interface DaemonFlags {
   logLevel?: string;
   follow?: boolean;
   lines?: number;
+  stale?: boolean;
 }
 
 export async function resolveServiceName(flags: DaemonFlags): Promise<string> {
@@ -157,12 +158,12 @@ export async function daemonStop(flags: DaemonFlags): Promise<void> {
   console.log(`Daemon stopped. Directory: ${dirPath}`);
 }
 
-export async function handleList(): Promise<void> {
+export async function handleList(flags: { stale?: boolean } = {}): Promise<void> {
   const platform = getPlatformOrExit();
-  const daemons = await platform.listAll();
+  const daemons = flags.stale ? await findStaleServices(platform) : await platform.listAll();
 
   if (daemons.length === 0) {
-    console.log('No syncthis services registered.');
+    console.log(flags.stale ? 'No stale services found.' : 'No syncthis services registered.');
     return;
   }
 
@@ -191,7 +192,38 @@ export function printDaemonTable(daemons: DaemonInfo[]): void {
   }
 }
 
+async function findStaleServices(platform: DaemonPlatform): Promise<DaemonInfo[]> {
+  const all = await platform.listAll();
+  const results: DaemonInfo[] = [];
+  for (const service of all) {
+    if (!service.dirPath) {
+      results.push(service);
+      continue;
+    }
+    try {
+      await access(service.dirPath);
+    } catch {
+      results.push(service);
+    }
+  }
+  return results;
+}
+
 export async function daemonUninstall(flags: DaemonFlags): Promise<void> {
+  if (flags.stale) {
+    const platform = getPlatformOrExit();
+    const stale = await findStaleServices(platform);
+    if (stale.length === 0) {
+      console.log('No stale services found.');
+      return;
+    }
+    for (const service of stale) {
+      await platform.uninstall(service.serviceName);
+      console.log(`Removed stale service: ${service.label} (${service.dirPath || 'unknown path'})`);
+    }
+    return;
+  }
+
   const dirPath = flags.path;
   const serviceName = await resolveServiceName(flags);
   const platform = getPlatformOrExit();
