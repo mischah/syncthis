@@ -15,9 +15,20 @@ vi.mock('simple-git', () => ({
   default: vi.fn(() => mockGit),
 }));
 
-const mockResolveRebase = vi.hoisted(() => vi.fn());
+const { mockResolveRebase, mockIsRebaseInProgress, mockGetConflictFiles } = vi.hoisted(() => ({
+  mockResolveRebase: vi.fn(),
+  mockIsRebaseInProgress: vi.fn(),
+  mockGetConflictFiles: vi.fn(),
+}));
 vi.mock('../../src/conflict/resolver.js', () => ({
   resolveRebase: mockResolveRebase,
+  isRebaseInProgress: mockIsRebaseInProgress,
+  getConflictFiles: mockGetConflictFiles,
+}));
+
+const mockResolveInteractive = vi.hoisted(() => vi.fn());
+vi.mock('../../src/conflict/interactive.js', () => ({
+  resolveInteractive: mockResolveInteractive,
 }));
 
 const mockNotifyConflict = vi.hoisted(() => vi.fn());
@@ -47,6 +58,10 @@ beforeEach(() => {
   mockGit.pull.mockResolvedValue(undefined);
   mockGit.push.mockResolvedValue(undefined);
   mockNotifyConflict.mockReturnValue(undefined);
+  mockIsRebaseInProgress.mockResolvedValue(false);
+  mockGetConflictFiles.mockResolvedValue([]);
+  // Reset isTTY to undefined (non-interactive) between tests
+  Object.defineProperty(process.stdin, 'isTTY', { value: undefined, configurable: true });
 });
 
 describe('runSyncCycle', () => {
@@ -263,5 +278,119 @@ describe('runSyncCycle – conflict strategies', () => {
       expect.objectContaining({ type: 'conflict-unresolved' }),
       logger,
     );
+  });
+});
+
+describe('runSyncCycle – isRebaseInProgress check', () => {
+  it('rebase in progress at start → skips sync, returns status conflict', async () => {
+    mockIsRebaseInProgress.mockResolvedValue(true);
+
+    const result = await runSyncCycle('/repo', config, logger);
+
+    expect(result.status).toBe('conflict');
+    expect(result.error).toBe('Rebase in progress');
+    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Rebase in progress'));
+    expect(mockGit.raw).not.toHaveBeenCalled();
+  });
+});
+
+describe('runSyncCycle – ask strategy', () => {
+  function setupConflictScenario() {
+    mockGit.raw
+      .mockResolvedValueOnce('M file1.md\n') // git status --porcelain
+      .mockResolvedValueOnce('abc1234\n') // rev-parse HEAD (before pull)
+      .mockResolvedValueOnce('UU file1.md\n'); // post-pull status
+    mockGit.pull.mockRejectedValue(new Error('CONFLICTS'));
+  }
+
+  it('ask + TTY + resolved → resolveInteractive called, push, status synced, interactiveDecisions set', async () => {
+    setupConflictScenario();
+    Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
+    mockResolveInteractive.mockResolvedValue({
+      status: 'resolved',
+      resolvedFiles: ['file1.md'],
+      conflictCopies: [],
+      decisions: [{ filePath: 'file1.md', choice: 'local' }],
+    });
+
+    const result = await runSyncCycle('/repo', { ...config, onConflict: 'ask' }, logger);
+
+    expect(result.status).toBe('synced');
+    expect(mockResolveInteractive).toHaveBeenCalledWith(
+      expect.objectContaining({
+        files: [{ filePath: 'file1.md' }],
+        dirPath: '/repo',
+      }),
+    );
+    expect(mockGit.push).toHaveBeenCalledWith('origin', 'main');
+    expect(result.interactiveDecisions).toEqual([{ filePath: 'file1.md', choice: 'local' }]);
+  });
+
+  it('ask + TTY + cancelled → status conflict, no push', async () => {
+    setupConflictScenario();
+    Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
+    mockResolveInteractive.mockResolvedValue({
+      status: 'cancelled',
+      resolvedFiles: [],
+      conflictCopies: [],
+      decisions: [],
+    });
+
+    const result = await runSyncCycle('/repo', { ...config, onConflict: 'ask' }, logger);
+
+    expect(result.status).toBe('conflict');
+    expect(result.error).toBe('Resolution cancelled/aborted');
+    expect(mockGit.push).not.toHaveBeenCalled();
+  });
+
+  it('ask + TTY + aborted → status conflict, no push', async () => {
+    setupConflictScenario();
+    Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
+    mockResolveInteractive.mockResolvedValue({
+      status: 'aborted',
+      resolvedFiles: [],
+      conflictCopies: [],
+      decisions: [],
+    });
+
+    const result = await runSyncCycle('/repo', { ...config, onConflict: 'ask' }, logger);
+
+    expect(result.status).toBe('conflict');
+    expect(result.error).toBe('Resolution cancelled/aborted');
+    expect(mockGit.push).not.toHaveBeenCalled();
+  });
+
+  it('ask + no TTY → stop-like behavior, logs syncthis resolve hint, no resolveInteractive', async () => {
+    setupConflictScenario();
+
+    const result = await runSyncCycle('/repo', { ...config, onConflict: 'ask' }, logger);
+
+    expect(result.status).toBe('conflict');
+    expect(result.error).toBe('Awaiting interactive resolution');
+    expect(mockResolveInteractive).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('syncthis resolve'));
+    expect(mockGit.push).not.toHaveBeenCalled();
+  });
+
+  it('ask + no TTY → returns without calling process.exit', async () => {
+    setupConflictScenario();
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => {
+      throw new Error('process.exit called');
+    }) as never);
+
+    const result = await runSyncCycle('/repo', { ...config, onConflict: 'ask' }, logger);
+
+    expect(result.status).toBe('conflict');
+    expect(exitSpy).not.toHaveBeenCalled();
+    exitSpy.mockRestore();
+  });
+
+  it('default (stop) strategy → existing behavior unchanged, no resolveInteractive', async () => {
+    setupConflictScenario();
+
+    const result = await runSyncCycle('/repo', { ...config, onConflict: 'stop' }, logger);
+
+    expect(result.status).toBe('conflict');
+    expect(mockResolveInteractive).not.toHaveBeenCalled();
   });
 });

@@ -9,14 +9,14 @@ export interface SyncthisConfig {
   interval: number | null;
   daemonLabel?: string | null;
   autostart?: boolean;
-  onConflict: 'stop' | 'auto-both' | 'auto-newest';
+  onConflict: 'stop' | 'auto-both' | 'auto-newest' | 'ask';
 }
 
 export interface CliFlags {
   branch?: string;
   cron?: string;
   interval?: number;
-  onConflict?: 'stop' | 'auto-both' | 'auto-newest';
+  onConflict?: 'stop' | 'auto-both' | 'auto-newest' | 'ask';
 }
 
 const CONFIG_FILENAME = '.syncthis.json';
@@ -103,15 +103,15 @@ export function validateConfig(config: unknown): SyncthisConfig {
     autostart = raw.autostart;
   }
 
-  const VALID_ON_CONFLICT = ['stop', 'auto-both', 'auto-newest'] as const;
-  let onConflict: 'stop' | 'auto-both' | 'auto-newest' = 'auto-both';
+  const VALID_ON_CONFLICT = ['stop', 'auto-both', 'auto-newest', 'ask'] as const;
+  let onConflict: 'stop' | 'auto-both' | 'auto-newest' | 'ask' = 'auto-both';
   if (raw.onConflict !== undefined && raw.onConflict !== null) {
     if (!VALID_ON_CONFLICT.includes(raw.onConflict as (typeof VALID_ON_CONFLICT)[number])) {
       throw new Error(
-        `Invalid onConflict value: '${raw.onConflict}'. Allowed: stop, auto-both, auto-newest`,
+        `Invalid onConflict value: '${raw.onConflict}'. Allowed: stop, auto-both, auto-newest, ask`,
       );
     }
-    onConflict = raw.onConflict as 'stop' | 'auto-both' | 'auto-newest';
+    onConflict = raw.onConflict as 'stop' | 'auto-both' | 'auto-newest' | 'ask';
   }
 
   return { remote: raw.remote.trim(), branch, cron, interval, daemonLabel, autostart, onConflict };

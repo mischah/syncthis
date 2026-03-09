@@ -20,12 +20,12 @@ export interface StartFlags {
   enableAutostart?: boolean;
 }
 
-const VALID_ON_CONFLICT = ['stop', 'auto-both', 'auto-newest'] as const;
+const VALID_ON_CONFLICT = ['stop', 'auto-both', 'auto-newest', 'ask'] as const;
 
 export async function handleStart(flags: StartFlags): Promise<void> {
   if (flags.onConflict !== undefined && !VALID_ON_CONFLICT.includes(flags.onConflict as never)) {
     console.error(
-      `Error: Invalid --on-conflict value: '${flags.onConflict}'. Allowed: stop, auto-both, auto-newest`,
+      `Error: Invalid --on-conflict value: '${flags.onConflict}'. Allowed: stop, auto-both, auto-newest, ask`,
     );
     process.exit(1);
   }
@@ -125,8 +125,14 @@ async function runForeground(flags: StartFlags): Promise<void> {
   // Run initial sync cycle
   const initialResult = await runSyncCycle(dirPath, config, logger);
   if (initialResult.status === 'conflict') {
-    await releaseLock(dirPath);
-    process.exit(1);
+    // ask + non-TTY: don't exit, fall through to scheduler
+    // Subsequent cycles will skip via isRebaseInProgress until user runs 'syncthis resolve'
+    if (config.onConflict === 'ask' && !process.stdin.isTTY) {
+      // Fall through
+    } else {
+      await releaseLock(dirPath);
+      process.exit(1);
+    }
   }
 
   // Start scheduler
@@ -134,6 +140,9 @@ async function runForeground(flags: StartFlags): Promise<void> {
     if (isShuttingDown) return;
     const result = await runSyncCycle(dirPath, config, logger);
     if (result.status === 'conflict') {
+      // ask + non-TTY: keep running, don't exit
+      if (config.onConflict === 'ask' && !process.stdin.isTTY) return;
+
       if (schedulerHandle !== null) {
         schedulerHandle.stop();
       }

@@ -1,6 +1,7 @@
 import meow from 'meow';
 import { daemonLogs, daemonStop, daemonUninstall, handleList } from './commands/daemon.js';
 import { handleInit } from './commands/init.js';
+import { handleResolve } from './commands/resolve.js';
 import { handleStart } from './commands/start.js';
 import { handleStatus } from './commands/status.js';
 
@@ -30,11 +31,21 @@ const COMMAND_HELP: Record<string, string> = {
     --cron              Cron expression for sync schedule
     --interval          Sync interval in seconds
                         (use --cron or --interval, not both)
-    --on-conflict       Conflict strategy: stop, auto-both, auto-newest (default: auto-both)
+    --on-conflict       Conflict strategy: stop, auto-both, auto-newest, ask (default: auto-both)
     --log-level         Log verbosity: debug, info, warn, error (default: info)
     --label             Custom service name
     --enable-autostart  Start service on login
     --path              Target directory (default: current directory)
+`,
+  resolve: `
+  Usage
+    $ syncthis resolve [options]
+
+  Interactively resolve rebase conflicts. Shows a diff per file
+  and lets you choose local, remote, both, or abort.
+
+  Options
+    --path      Target directory (default: current directory)
 `,
   stop: `
   Usage
@@ -101,7 +112,7 @@ const cli = meow(
       --cron              Cron expression for sync schedule
       --interval          Sync interval in seconds
                           (use --cron or --interval, not both)
-      --on-conflict       Conflict strategy: stop, auto-both, auto-newest (default: auto-both)
+      --on-conflict       Conflict strategy: stop, auto-both, auto-newest, ask (default: auto-both)
       --log-level         Log verbosity: debug, info, warn, error (default: info)
       --label             Custom service name
       --enable-autostart  Start service on login
@@ -109,6 +120,7 @@ const cli = meow(
       --label             Custom service name
     status      Show sync and service status
       --label             Custom service name
+    resolve     Interactively resolve rebase conflicts
     list        List all registered services
     logs        Show sync logs
       --follow, -f        Follow log output
@@ -126,6 +138,7 @@ const cli = meow(
     $ syncthis start --path ~/vault
     $ syncthis start --interval 60
     $ syncthis start --foreground
+    $ syncthis resolve --path ~/vault
     $ syncthis logs --follow
     $ syncthis status
 `,
@@ -208,6 +221,10 @@ switch (command) {
       path: cli.flags.path,
       label: cli.flags.label,
     });
+    break;
+  case 'resolve':
+    if (showCommandHelp('resolve')) break;
+    await handleResolve({ path: cli.flags.path });
     break;
   case 'list':
     if (showCommandHelp('list')) break;

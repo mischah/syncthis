@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { writeFile } from 'node:fs/promises';
+import { access, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { SimpleGit } from 'simple-git';
 import type { Logger } from '../logger.js';
@@ -74,11 +74,42 @@ export async function resolveFile(
   strategy: 'auto-both' | 'auto-newest',
   timestamp: Date,
   dirPath: string,
+  userChoice?: 'local' | 'remote' | 'both',
 ): Promise<{ action: 'ours' | 'theirs' | 'both'; conflictCopy?: string }> {
+  if (userChoice === 'local') {
+    await git.raw(['checkout', '--ours', file.filePath]);
+    await git.add([file.filePath]);
+    return { action: 'ours' };
+  }
+  if (userChoice === 'remote') {
+    await git.raw(['checkout', '--theirs', file.filePath]);
+    await git.add([file.filePath]);
+    return { action: 'theirs' };
+  }
+  if (userChoice === 'both') {
+    return autoBoth(git, file, timestamp, dirPath);
+  }
   if (strategy === 'auto-both') {
     return autoBoth(git, file, timestamp, dirPath);
   }
   return autoNewest(git, file, timestamp, dirPath);
+}
+
+export async function isRebaseInProgress(git: SimpleGit): Promise<boolean> {
+  const gitDir = (await git.revparse(['--absolute-git-dir'])).trim();
+  const rebaseMerge = path.join(gitDir, 'rebase-merge');
+  const rebaseApply = path.join(gitDir, 'rebase-apply');
+
+  const exists = async (p: string): Promise<boolean> => {
+    try {
+      await access(p);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  return (await exists(rebaseMerge)) || (await exists(rebaseApply));
 }
 
 export async function resolveRebase(

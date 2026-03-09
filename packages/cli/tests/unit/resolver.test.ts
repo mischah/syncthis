@@ -1,15 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getConflictFiles, resolveFile, resolveRebase } from '../../src/conflict/resolver.js';
+import {
+  getConflictFiles,
+  isRebaseInProgress,
+  resolveFile,
+  resolveRebase,
+} from '../../src/conflict/resolver.js';
 import type { Logger } from '../../src/logger.js';
 
-const mockWriteFile = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+const { mockWriteFile, mockAccess } = vi.hoisted(() => ({
+  mockWriteFile: vi.fn().mockResolvedValue(undefined),
+  mockAccess: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock('node:fs/promises', () => ({
   writeFile: mockWriteFile,
+  access: mockAccess,
 }));
 
 const mockGit = vi.hoisted(() => ({
   raw: vi.fn(),
   add: vi.fn(),
+  revparse: vi.fn(),
 }));
 
 vi.mock('simple-git', () => ({
@@ -34,6 +44,7 @@ beforeEach(() => {
   mockGit.add.mockResolvedValue(undefined);
   mockGit.raw.mockResolvedValue('');
   mockWriteFile.mockResolvedValue(undefined);
+  mockAccess.mockResolvedValue(undefined);
 });
 
 describe('getConflictFiles', () => {
@@ -185,6 +196,108 @@ describe('resolveFile – auto-newest', () => {
 
     expect(result.action).toBe('both');
     expect(result.conflictCopy).toBe(`note.conflict-${TS_STR}.md`);
+  });
+});
+
+describe('resolveFile – userChoice', () => {
+  it("userChoice 'local': calls checkout --ours, add, returns { action: 'ours' }", async () => {
+    const result = await resolveFile(
+      mockGit as never,
+      { filePath: 'note.md' },
+      'auto-both',
+      TS,
+      FAKE_DIR,
+      'local',
+    );
+
+    expect(mockGit.raw).toHaveBeenCalledWith(['checkout', '--ours', 'note.md']);
+    expect(mockGit.add).toHaveBeenCalledWith(['note.md']);
+    expect(result.action).toBe('ours');
+    expect(result.conflictCopy).toBeUndefined();
+  });
+
+  it("userChoice 'remote': calls checkout --theirs, add, returns { action: 'theirs' }", async () => {
+    const result = await resolveFile(
+      mockGit as never,
+      { filePath: 'note.md' },
+      'auto-both',
+      TS,
+      FAKE_DIR,
+      'remote',
+    );
+
+    expect(mockGit.raw).toHaveBeenCalledWith(['checkout', '--theirs', 'note.md']);
+    expect(mockGit.add).toHaveBeenCalledWith(['note.md']);
+    expect(result.action).toBe('theirs');
+    expect(result.conflictCopy).toBeUndefined();
+  });
+
+  it("userChoice 'both': runs auto-both logic, returns { action: 'both', conflictCopy }", async () => {
+    mockGit.raw
+      .mockResolvedValueOnce('remote content') // git show HEAD:<file>
+      .mockResolvedValueOnce(undefined); // git checkout --theirs
+
+    const result = await resolveFile(
+      mockGit as never,
+      { filePath: 'note.md' },
+      'auto-both',
+      TS,
+      FAKE_DIR,
+      'both',
+    );
+
+    expect(mockWriteFile).toHaveBeenCalled();
+    expect(result.action).toBe('both');
+    expect(result.conflictCopy).toBe(`note.conflict-${TS_STR}.md`);
+  });
+
+  it('no userChoice: strategy-based behavior unchanged', async () => {
+    mockGit.raw
+      .mockResolvedValueOnce('remote content') // git show HEAD:<file>
+      .mockResolvedValueOnce(undefined); // git checkout --theirs
+
+    const result = await resolveFile(
+      mockGit as never,
+      { filePath: 'note.md' },
+      'auto-both',
+      TS,
+      FAKE_DIR,
+    );
+
+    expect(result.action).toBe('both');
+  });
+});
+
+describe('isRebaseInProgress', () => {
+  it('returns true when rebase-merge exists', async () => {
+    mockGit.revparse.mockResolvedValueOnce('.git');
+    mockAccess.mockResolvedValueOnce(undefined); // rebase-merge exists
+
+    const result = await isRebaseInProgress(mockGit as never);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns true when rebase-apply exists (rebase-merge does not)', async () => {
+    mockGit.revparse.mockResolvedValueOnce('.git');
+    mockAccess
+      .mockRejectedValueOnce(new Error('ENOENT')) // rebase-merge does not exist
+      .mockResolvedValueOnce(undefined); // rebase-apply exists
+
+    const result = await isRebaseInProgress(mockGit as never);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns false when neither rebase-merge nor rebase-apply exists', async () => {
+    mockGit.revparse.mockResolvedValueOnce('.git');
+    mockAccess
+      .mockRejectedValueOnce(new Error('ENOENT')) // rebase-merge does not exist
+      .mockRejectedValueOnce(new Error('ENOENT')); // rebase-apply does not exist
+
+    const result = await isRebaseInProgress(mockGit as never);
+
+    expect(result).toBe(false);
   });
 });
 
