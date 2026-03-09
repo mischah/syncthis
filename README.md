@@ -171,7 +171,7 @@ syncthis start --enable-autostart
 | `--enable-autostart` | boolean | Start automatically on login. Default: `false` |
 | `--cron` | string | Cron expression. Persisted in the service definition. |
 | `--interval` | number | Interval in seconds. Persisted in the service definition. |
-| `--on-conflict` | string | Conflict strategy: `auto-both`, `auto-newest`, `stop`. Default: `auto-both` |
+| `--on-conflict` | string | Conflict strategy: `auto-both`, `auto-newest`, `stop`, `ask`. Default: `auto-both` |
 | `--log-level` | string | `debug`, `info`, `warn`, `error`. Default: `info` |
 | `--foreground` | boolean | Run in foreground instead of as a service (see below). |
 
@@ -266,6 +266,28 @@ Your files, `.syncthis.json`, and logs are not deleted — only the OS service r
 
 ---
 
+### `syncthis resolve`
+
+Interactively resolves a paused rebase conflict left by the `ask` strategy when running in a non-TTY environment (e.g. background service).
+
+```bash
+syncthis resolve
+syncthis resolve --path ~/vault
+```
+
+- Shows a word-level diff for each conflicting file.
+- Prompts you to choose `local`, `remote`, `both`, or `abort` per file.
+- Continues the rebase after each resolution step.
+- Pushes to the remote once all conflicts are resolved.
+
+**Flags:**
+
+| Flag | Type | Description |
+|------|------|-------------|
+| `--path` | string | Directory to resolve. Default: current directory |
+
+---
+
 ## How It Works
 
 ### Sync cycle
@@ -273,35 +295,63 @@ Your files, `.syncthis.json`, and logs are not deleted — only the OS service r
 Every sync cycle follows these steps:
 
 ```
-Scheduled trigger (cron or interval)
-          │
-          ▼
-  ┌───────────────────┐   No local      ┌─────────────────────────────────────┐
-  │  git status       │── changes ─────►│  git pull --rebase                  │
-  └────────┬──────────┘                 └──┬──────────────────────────────────┘
-           │ Changes detected              │ OK                  │ Conflict/Error
-           ▼                              ▼                      ▼
-  ┌───────────────────┐            HEAD changed?          ❌ Sync paused /
-  │  git add -A       │             │         │            ⚠️  retry next cycle
-  └────────┬──────────┘            Yes        No
-           │                        │         │
-           ▼                        ▼         ▼
-  ┌──────────────────────────┐  ✅ Pulled  ✅ No-op
-  │  git commit -m "sync:…"  │  remote
-  └────────┬─────────────────┘  changes
-           │
-           ▼
-  ┌───────────────────────┐
-  │  git pull --rebase    │──── Conflict / Error ────────► ❌ / ⚠️  (see above)
-  └────────┬──────────────┘
-           │ OK
-           ▼
-  ┌───────────────────┐
-  │  git push         │──── Network error ───────────────► ⚠️  Log warning,
-  └────────┬──────────┘                                        retry next cycle
-           │ OK
-           ▼
-        ✅ Done
+                Scheduled trigger
+                      │
+                      ▼
+          ┌───────────────────────┐          ┌────────────────────────┐
+          │  Rebase in progress?  ├── Yes ──►│      Sync skipped;     │
+          └───────────┬───────────┘          │ run `syncthis resolve` │
+                     Nope                    └────────────────────────┘
+                      │
+                      ▼
+              ┌───────────────────┐
+              │    git status     │
+              └───┬───────────┬───┘
+                  │           │
+               Changes     No changes
+                  │           │
+                  │           ▼
+                  │  ┌───────────────────┐      ┌──────────────────┐
+                  │  │ git pull --rebase ├─────►│   Sync paused /  │
+                  │  └─────────┬─────────┘ Err  │ retry next cycle │
+                  │           OK                └──────────────────┘
+                  │            │
+                  │            ▼
+                  │    ┌───────────────────┐
+                  │    │   HEAD changed?   │
+                  │    └────┬─────────┬────┘
+                  │        Yes       Nope
+                  │         │         │
+                  │         ▼         ▼
+                  │    ┌────────┐  ┌───────┐
+                  │    │ Pulled │  │ No-op │
+                  │    └────────┘  └───────┘
+                  ▼
+          ┌───────────────┐
+          │  git add -A   │
+          └───────┬───────┘
+                  │
+                  ▼
+          ┌───────────────────┐
+          │  git commit       │
+          └───────┬───────────┘
+                  │
+                  ▼
+          ┌───────────────────┐               ┌──────────────────┐
+          │ git pull --rebase ├──── Err ─────►│   Sync paused /  │
+          └───────┬───────────┘               │ retry next cycle │
+                 OK                           └──────────────────┘
+                  │
+                  ▼
+          ┌──────────────────┐               ┌──────────────────┐
+          │  git push        ├─ Net error ──►│   Log warning,   │
+          └───────┬──────────┘               │ retry next cycle │
+                 OK                          └──────────────────┘
+                  │
+                  ▼
+            ┌──────────┐
+            │   Done   │
+            └──────────┘
 ```
 
 **Conflict handling:** When a rebase conflict occurs during `git pull --rebase`, syncthis handles it according to the `onConflict` setting (see [Conflict Strategies](#conflict-strategies) below).
@@ -361,6 +411,13 @@ git rebase --continue
 syncthis start
 ```
 
+#### `ask`
+
+Pauses the sync and prompts you interactively to resolve each conflict:
+
+- **In foreground / TTY mode:** Shows a word-level diff and prompts you inline to choose `local` / `remote` / `both` / `abort` per file.
+- **In background service mode (non-TTY):** The rebase is left open. Run `syncthis resolve` in the same directory to complete resolution interactively.
+
 ---
 
 ## Configuration
@@ -383,7 +440,7 @@ syncthis start
 | `branch` | string | No | `"main"` | Branch to sync |
 | `cron` | string \| null | No | `"*/5 * * * *"` | Cron expression |
 | `interval` | number \| null | No | `null` | Interval in seconds (≥ 10) |
-| `onConflict` | string | No | `"auto-both"` | Conflict strategy: `auto-both`, `auto-newest`, `stop` |
+| `onConflict` | string | No | `"auto-both"` | Conflict strategy: `auto-both`, `auto-newest`, `stop`, `ask` |
 
 Exactly one of `cron` or `interval` must be set. CLI flags always override the config file.
 
@@ -457,9 +514,16 @@ syncthis/
 │       │   ├── cli.ts           # Entry point, command routing
 │       │   ├── commands/
 │       │   │   ├── init.ts
+│       │   │   ├── resolve.ts   # Interactive conflict resolution
 │       │   │   ├── start.ts     # Dual-mode: service (default) + foreground
 │       │   │   ├── status.ts
 │       │   │   └── daemon.ts    # Service management functions
+│       │   ├── conflict/
+│       │   │   ├── resolver.ts          # Conflict detection & strategy dispatch
+│       │   │   ├── interactive.ts       # Interactive prompts & resolution logic
+│       │   │   ├── diff-renderer.ts     # Word-level diff rendering
+│       │   │   ├── conflict-filename.ts # Conflict copy filename generation
+│       │   │   └── notify.ts            # Conflict notification hooks
 │       │   ├── daemon/
 │       │   │   ├── platform.ts  # DaemonPlatform interface + factory
 │       │   │   ├── launchd.ts   # macOS launchd implementation
@@ -501,7 +565,6 @@ These features are intentionally out of scope for now but may be explored later:
 - **File watcher** — Trigger a sync immediately on file changes via `fs.watch`, instead of waiting for the next scheduled cycle.
 - **Log rotation** — Automatically rotate or clean up log files by size or age.
 - **Multi-directory** — A single process that syncs multiple directories at once.
-- **Interactive conflict resolution (`ask`)** — A `syncthis resolve` command that shows a diff per file and lets the user choose `local` / `remote` / `both`. In foreground mode: inline prompt. In daemon mode: fallback to `stop` until resolved.
 - **Desktop notifications** — Notification hooks are in place (log-only in v1). A transport layer (node-notifier, native OS APIs) will be added separately.
 - **Conflict cleanup** — A `syncthis cleanup` command to remove `.conflict-*` files from the directory (conflict copies are intentionally committed and synced to all devices so you can review them anywhere).
 - **Conflict history** — Persistent log of which conflicts occurred, when, and how they were resolved, stored in `.syncthis/conflict-log.json`.
