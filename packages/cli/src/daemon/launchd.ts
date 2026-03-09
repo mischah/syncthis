@@ -91,20 +91,16 @@ export class LaunchdPlatform implements DaemonPlatform {
 
   async enableAutostart(serviceName: string): Promise<void> {
     const plistPath = this.plistPath(serviceName);
-    await execa('launchctl', ['unload', plistPath]);
     const content = await readFile(plistPath, 'utf-8');
     const modified = content.replace(/(<key>RunAtLoad<\/key>\s*)<false\/>/, '$1<true/>');
     await writeFile(plistPath, modified, 'utf-8');
-    await execa('launchctl', ['load', plistPath]);
   }
 
   async disableAutostart(serviceName: string): Promise<void> {
     const plistPath = this.plistPath(serviceName);
-    await execa('launchctl', ['unload', plistPath]);
     const content = await readFile(plistPath, 'utf-8');
     const modified = content.replace(/(<key>RunAtLoad<\/key>\s*)<true\/>/, '$1<false/>');
     await writeFile(plistPath, modified, 'utf-8');
-    await execa('launchctl', ['load', plistPath]);
   }
 
   async isAutostartEnabled(serviceName: string): Promise<boolean> {

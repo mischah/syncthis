@@ -29,7 +29,7 @@ function buildPath(nodeBinDir: string): string {
 export function generatePlist(config: DaemonConfig): string {
   const args = buildProgramArguments(config);
   const argsXml = args.map((a) => `    <string>${a}</string>`).join('\n');
-  const runAtLoad = config.autostart ? '<true/>' : '<false/>';
+  const runAtLoad = '<false/>';
   const stdoutPath = `${config.dirPath}/.syncthis/logs/launchd-stdout.log`;
   const stderrPath = `${config.dirPath}/.syncthis/logs/launchd-stderr.log`;
   const envPath = buildPath(config.nodeBinDir);

@@ -26,7 +26,6 @@ export interface DaemonConfig {
   interval?: number;
   logLevel?: string;
   onConflict?: string;
-  autostart: boolean;
 }
 
 export interface DaemonPlatform {

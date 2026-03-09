@@ -185,7 +185,7 @@ describe('daemonStart', () => {
     await vi.runAllTimersAsync();
     await promise;
 
-    expect(platform.install).toHaveBeenCalledWith(expect.objectContaining({ autostart: true }));
+    expect(platform.install).toHaveBeenCalledOnce();
     expect(platform.enableAutostart).toHaveBeenCalledOnce();
   });
 

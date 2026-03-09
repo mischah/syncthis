@@ -93,7 +93,6 @@ export async function daemonStart(flags: DaemonFlags): Promise<void> {
     interval: mergedConfig.interval ?? undefined,
     logLevel: flags.logLevel,
     onConflict: mergedConfig.onConflict !== 'auto-both' ? mergedConfig.onConflict : undefined,
-    autostart,
   };
 
   await platform.install(daemonConfig);

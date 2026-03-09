@@ -7,7 +7,6 @@ const BASE_CONFIG: DaemonConfig = {
   dirPath: '/home/user/vault-notes',
   nodeBinDir: '/usr/local/bin',
   syncthisBinary: '/usr/local/bin/syncthis',
-  autostart: false,
 };
 
 describe('generatePlist', () => {
@@ -40,16 +39,10 @@ describe('generatePlist', () => {
     expect(plist).toContain('/home/user/.nvm/versions/node/v22/bin:');
   });
 
-  it('RunAtLoad is <false/> when autostart is false', () => {
-    const plist = generatePlist({ ...BASE_CONFIG, autostart: false });
+  it('RunAtLoad is always <false/>', () => {
+    const plist = generatePlist(BASE_CONFIG);
     expect(plist).toContain('<key>RunAtLoad</key>');
     expect(plist).not.toContain('<true/>');
-  });
-
-  it('RunAtLoad is <true/> when autostart is true', () => {
-    const plist = generatePlist({ ...BASE_CONFIG, autostart: true });
-    expect(plist).toContain('<key>RunAtLoad</key>');
-    expect(plist).toContain('<true/>');
   });
 
   it('contains KeepAlive with SuccessfulExit = <false/>', () => {
