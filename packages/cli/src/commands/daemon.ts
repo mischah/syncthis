@@ -11,6 +11,7 @@ import {
   getSyncthisBinary,
 } from '../daemon/platform.js';
 import { generateServiceName } from '../daemon/service-name.js';
+import { isLocked, releaseLock } from '../lock.js';
 
 export interface DaemonFlags {
   path: string;
@@ -55,6 +56,12 @@ export async function daemonStart(flags: DaemonFlags): Promise<void> {
     console.error("Error: Not initialized. Run 'syncthis init' first.");
     return process.exit(1);
   });
+
+  const lockStatus = await isLocked(dirPath);
+  if (lockStatus.locked) {
+    console.log(`Info: Daemon already running for ${dirPath} (PID: ${lockStatus.pid}).`);
+    return;
+  }
 
   const serviceName = generateServiceName(dirPath, flags.label);
   const platform = getPlatformOrExit();
@@ -129,6 +136,13 @@ export async function daemonStop(flags: DaemonFlags): Promise<void> {
   const currentStatus = await platform.status(serviceName);
 
   if (currentStatus.state === 'not-installed') {
+    const lockStatus = await isLocked(dirPath);
+    if (lockStatus.locked && lockStatus.pid !== undefined) {
+      process.kill(lockStatus.pid, 'SIGTERM');
+      await releaseLock(dirPath);
+      console.log(`Foreground process stopped (PID: ${lockStatus.pid}). Directory: ${dirPath}`);
+      return;
+    }
     console.error(`Error: No service found for ${dirPath}. Run 'syncthis start' first.`);
     process.exit(1);
   }

@@ -20,6 +20,11 @@ vi.mock('../../src/config.js', async (importOriginal) => {
   };
 });
 
+vi.mock('../../src/lock.js', () => ({
+  isLocked: vi.fn().mockResolvedValue({ locked: false }),
+  releaseLock: vi.fn().mockResolvedValue(undefined),
+}));
+
 import {
   daemonLogs,
   daemonStart,
@@ -30,10 +35,13 @@ import {
 import { loadConfig, writeConfig } from '../../src/config.js';
 import type { DaemonInfo, DaemonPlatform, DaemonStatus } from '../../src/daemon/platform.js';
 import { getPlatform } from '../../src/daemon/platform.js';
+import { isLocked, releaseLock } from '../../src/lock.js';
 
 const mockGetPlatform = vi.mocked(getPlatform);
 const mockLoadConfig = vi.mocked(loadConfig);
 const mockWriteConfig = vi.mocked(writeConfig);
+const mockIsLocked = vi.mocked(isLocked);
+const mockReleaseLock = vi.mocked(releaseLock);
 
 // --- Helpers ---
 
@@ -69,6 +77,8 @@ beforeEach(async () => {
   vi.spyOn(process, 'exit').mockImplementation((code?) => {
     throw new Error(`process.exit(${code ?? ''})`);
   });
+  mockIsLocked.mockResolvedValue({ locked: false });
+  mockReleaseLock.mockResolvedValue(undefined);
 });
 
 afterEach(async () => {
@@ -195,6 +205,21 @@ describe('daemonStart', () => {
     );
   });
 
+  it('prints Info message and skips install when a foreground process is running via lock file', async () => {
+    mockLoadConfig.mockResolvedValue({ ...baseConfig });
+    mockIsLocked.mockResolvedValue({ locked: true, pid: 5555 });
+    const platform = makeMockPlatform();
+    mockGetPlatform.mockReturnValue(platform);
+
+    await daemonStart({ path: tempDir });
+
+    expect(platform.install).not.toHaveBeenCalled();
+    expect(platform.start).not.toHaveBeenCalled();
+    expect(console.log).toHaveBeenCalledWith(
+      expect.stringContaining('Info: Daemon already running'),
+    );
+  });
+
   it('writes daemonLabel to config after a successful start', async () => {
     mockLoadConfig.mockResolvedValue({ ...baseConfig });
     const platform = makeMockPlatform({
@@ -249,6 +274,22 @@ describe('daemonStop', () => {
 
     await expect(daemonStop({ path: tempDir })).rejects.toThrow('process.exit(1)');
     expect(console.error).toHaveBeenCalledWith(expect.stringContaining('No service found'));
+  });
+
+  it('kills foreground process via lock file when no service is installed', async () => {
+    mockLoadConfig.mockRejectedValue(new Error('no config'));
+    mockIsLocked.mockResolvedValue({ locked: true, pid: 16140 });
+    const platform = makeMockPlatform({
+      status: vi.fn().mockResolvedValue({ state: 'not-installed' } as DaemonStatus),
+    });
+    mockGetPlatform.mockReturnValue(platform);
+    const killSpy = vi.spyOn(process, 'kill').mockReturnValue(true);
+
+    await daemonStop({ path: tempDir });
+
+    expect(killSpy).toHaveBeenCalledWith(16140, 'SIGTERM');
+    expect(mockReleaseLock).toHaveBeenCalledWith(tempDir);
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Foreground process stopped'));
   });
 
   it('calls stop when service is running', async () => {
