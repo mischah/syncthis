@@ -138,7 +138,7 @@ describe('handleResolve – successful resolution', () => {
 
     await handleResolve({ path: '/repo' });
 
-    expect(mockGit.raw).toHaveBeenCalledWith(['rebase', '--continue']);
+    expect(mockGit.raw).toHaveBeenCalledWith(['-c', 'core.editor=true', 'rebase', '--continue']);
   });
 
   it('calls git push after resolving', async () => {
@@ -177,7 +177,7 @@ describe('handleResolve – cascading rebase', () => {
     await handleResolve({ path: '/repo' });
 
     expect(mockResolveInteractive).toHaveBeenCalledTimes(2);
-    expect(mockGit.raw).toHaveBeenCalledWith(['rebase', '--continue']);
+    expect(mockGit.raw).toHaveBeenCalledWith(['-c', 'core.editor=true', 'rebase', '--continue']);
     expect(mockGit.push).toHaveBeenCalledWith('origin', 'main');
   });
 });

@@ -160,7 +160,7 @@ export async function runSyncCycle(
           allConflictCopies.push(...result.conflictCopies);
 
           try {
-            await git.raw(['rebase', '--continue']);
+            await git.raw(['-c', 'core.editor=true', 'rebase', '--continue']);
           } catch {
             // Next commit may also have conflicts — detected by getConflictFiles below
           }

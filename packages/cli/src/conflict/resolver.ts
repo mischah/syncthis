@@ -137,7 +137,7 @@ export async function resolveRebase(
     }
 
     try {
-      await git.raw(['rebase', '--continue']);
+      await git.raw(['-c', 'core.editor=true', 'rebase', '--continue']);
     } catch {
       // New conflicts from the next commit will be picked up on the next iteration.
       // A real rebase error (non-conflict) will surface as an empty getConflictFiles
@@ -158,7 +158,7 @@ export async function resolveRebase(
   // the previous iteration, the rebase may still be in progress with staged changes pending.
   if (await isRebaseInProgress(git)) {
     try {
-      await git.raw(['rebase', '--continue']);
+      await git.raw(['-c', 'core.editor=true', 'rebase', '--continue']);
     } catch (err) {
       if (await isRebaseInProgress(git)) {
         logger.error(`Failed to finalize rebase after conflict resolution: ${String(err)}`);
