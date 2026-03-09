@@ -368,7 +368,10 @@ describe('runSyncCycle – ask strategy', () => {
     expect(result.status).toBe('conflict');
     expect(result.error).toBe('Awaiting interactive resolution');
     expect(mockResolveInteractive).not.toHaveBeenCalled();
-    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('syncthis resolve'));
+    expect(mockNotifyConflict).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'conflict-unresolved', strategy: 'ask' }),
+      logger,
+    );
     expect(mockGit.push).not.toHaveBeenCalled();
   });
 

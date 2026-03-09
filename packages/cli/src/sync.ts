@@ -107,9 +107,6 @@ export async function runSyncCycle(
         const isInteractive = process.stdin.isTTY === true;
 
         if (!isInteractive) {
-          logger.error(
-            `Rebase conflict detected in: ${conflictedFiles.join(', ')}. No interactive terminal available. Run: syncthis resolve --path ${dirPath}`,
-          );
           notifyConflict(
             {
               type: 'conflict-unresolved',
