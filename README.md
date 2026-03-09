@@ -37,7 +37,7 @@ Commits, pulls, and pushes your changes on a configurable schedule — no manual
 
 ## Quick Start for Obsidian Users
 
-> Not a developer? This section is for you. If you're comfortable with the terminal, skip to [Installation](#installation).
+> Not a developer? This section is for you. Brand new to Git and the terminal? Follow our [step-by-step Wiki tutorial](https://github.com/mischah/syncthis/wiki/Obsidian-Sync-Setup-Guide) instead. If you're comfortable with the terminal, skip to [Installation](#installation).
 
 **What syncthis does:** It runs in the background and automatically commits and syncs your Obsidian vault to a private Git repository (e.g. on GitHub). This keeps your notes in sync across all your devices — without any manual steps.
 
@@ -45,10 +45,10 @@ Commits, pulls, and pushes your changes on a configurable schedule — no manual
 
 1. **Git** installed — check with `git --version` in your terminal. If missing, [download it here](https://git-scm.com/downloads).
 2. **Node.js 20+** installed — check with `node --version`. If missing, [download it here](https://nodejs.org).
-3. A **private GitHub repository** created for your vault (e.g. `github.com/yourname/my-vault`).
+3. A **private GitHub repository** created for your vault (e.g. `github.com/yourname/my-vault`). See [Creating a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-new-repository) — make sure to select **Private**.
 4. **SSH access to GitHub** configured — follow [GitHub's SSH guide](https://docs.github.com/en/authentication/connecting-to-github-with-ssh) if you haven't done this yet.
 
-**Setup (one-time, takes ~2 minutes):**
+**Setup (one-time, takes ~2 minutes).** Open a terminal (macOS: Terminal.app via Spotlight; Linux: Ctrl+Alt+T) and run:
 
 ```bash
 # 1. Install syncthis
