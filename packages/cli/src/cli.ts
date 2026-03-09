@@ -102,12 +102,13 @@ const cli = meow(
     $ syncthis <command> [options]
 
   Commands
-    init        Initialize a directory for sync
+    init              Initialize a directory for sync
       --remote            Set up sync for an existing directory
       --clone             Clone a remote repository first
                           (use --remote or --clone, not both)
       --branch            Branch name
-    start       Start background sync service
+
+    start             Start background sync service
       --foreground        Run in foreground instead of as service
       --cron              Cron expression for sync schedule
       --interval          Sync interval in seconds
@@ -116,16 +117,22 @@ const cli = meow(
       --log-level         Log verbosity: debug, info, warn, error (default: info)
       --label             Custom service name
       --enable-autostart  Start service on login
-    stop        Stop background sync service
+
+      stop            Stop background sync service
       --label             Custom service name
-    status      Show sync and service status
+
+      status          Show sync and service status
       --label             Custom service name
-    resolve     Interactively resolve rebase conflicts
-    list        List all registered services
-    logs        Show sync logs
+
+      resolve         Interactively resolve rebase conflicts
+
+      list            List all registered services
+
+      logs            Show sync logs
       --follow, -f        Follow log output
       --lines, -n         Number of log lines (default: 50)
-    uninstall   Remove background sync service
+
+      uninstall       Remove background sync service
       --label             Custom service name
 
   Global options
