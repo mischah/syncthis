@@ -37,7 +37,7 @@
     "diff": "8.0.3",
     "execa": "9.6.1",
     "meow": "14.1.0",
-    "simple-git": "3.32.3"
+    "simple-git": "3.33.0"
   },
   "devDependencies": {
     "@types/node": "25.3.3",
