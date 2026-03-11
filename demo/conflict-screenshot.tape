@@ -20,7 +20,7 @@ Enter
 Sleep 3s
 Show
 
-# Diff + file-level select menu is now visible
+# Status line + diff + file-level select menu is now visible
 Sleep 4s
 
 # Navigate to "Resolve chunk-by-chunk" (4th option = 3x Down)
@@ -31,33 +31,33 @@ Sleep 1s
 Down
 Sleep 1.5s
 
-# Select "Resolve chunk-by-chunk"
+# Select "Resolve chunk-by-chunk" — screen clears between each hunk
 Enter
 Sleep 1.5s
 
-# Hunk 1/5: "Alice, Bob" → "Alice, Bob, Charlie" — keep remote
+# Hunk 1 of 5: "Alice, Bob" → "Alice, Bob, Charlie" — keep remote
 Down
 Sleep 1s
 Enter
 Sleep 1.5s
 
-# Hunk 2/5: "- [ ]" → "- [x]" — keep remote
+# Hunk 2 of 5: "- [ ]" → "- [x]" — keep remote
 Down
 Sleep 1s
 Enter
 Sleep 1.5s
 
-# Hunk 3/5: added "Draft migration guide" — keep remote
+# Hunk 3 of 5: added "Draft migration guide" — keep remote
 Down
 Sleep 1s
 Enter
 Sleep 1.5s
 
-# Hunk 4/5: "one week" → "two weeks" — keep local
+# Hunk 4 of 5: "one week" → "two weeks" — keep local
 Enter
 Sleep 1.5s
 
-# Hunk 5/5: added "Charlie will handle..." — keep remote
+# Hunk 5 of 5: added "Charlie will handle..." — keep remote
 Down
 Sleep 1s
 Enter

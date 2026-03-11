@@ -86,12 +86,12 @@ describe('getContextLines', () => {
     expect(getContextLines(49)).toBe('full');
   });
 
-  it('50 lines → 3', () => {
-    expect(getContextLines(50)).toBe(3);
+  it('50 lines → 5', () => {
+    expect(getContextLines(50)).toBe(5);
   });
 
-  it('500 lines → 3', () => {
-    expect(getContextLines(500)).toBe(3);
+  it('500 lines → 5', () => {
+    expect(getContextLines(500)).toBe(5);
   });
 });
 
