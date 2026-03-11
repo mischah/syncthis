@@ -65,7 +65,7 @@ export function parseUnifiedDiff(diff: string): DiffHunk[] {
 
 export function getContextLines(totalLines: number): number | 'full' {
   if (totalLines < 50) return 'full';
-  return 5;
+  return 3;
 }
 
 export function highlightWordDiff(
@@ -203,16 +203,46 @@ export function renderConflictDiff(
   return `${output.join('\n')}\n`;
 }
 
-export function renderSingleHunk(
-  hunk: DiffHunk,
-  index: number,
-  total: number,
-  options?: DiffRendererOptions,
-): string {
+export interface StatusLineOptions {
+  fileIndex: number;
+  fileTotal: number;
+  fileName: string;
+  filesResolved?: number;
+  hunkIndex?: number;
+  hunkTotal?: number;
+  hunksResolved?: number;
+}
+
+export function renderStatusLine(opts: StatusLineOptions): string {
+  const lines: string[] = [];
+
+  const fileResolved = opts.filesResolved ?? 0;
+  let fileLine = `  File ${opts.fileIndex + 1} of ${opts.fileTotal} · ${opts.fileName}`;
+  if (fileResolved > 0) {
+    fileLine += ` · ${fileResolved} resolved`;
+  }
+  if (opts.hunkIndex == null && opts.hunkTotal != null && opts.hunkTotal > 1) {
+    fileLine += ` · ${opts.hunkTotal} hunks`;
+  }
+  lines.push(fileLine);
+
+  if (opts.hunkIndex != null && opts.hunkTotal != null) {
+    let hunkLine = `  Hunk ${opts.hunkIndex + 1} of ${opts.hunkTotal}`;
+    const hunksResolved = opts.hunksResolved ?? 0;
+    if (hunksResolved > 0) {
+      hunkLine += ` · ${hunksResolved} resolved`;
+    }
+    lines.push(hunkLine);
+  }
+
+  return lines.join('\n');
+}
+
+export function renderSingleHunk(hunk: DiffHunk, options?: DiffRendererOptions): string {
   const width = options?.terminalWidth ?? process.stdout.columns ?? 80;
   const output: string[] = [];
 
-  const hunkLabel = `  [${index + 1}/${total}] ${formatLineRange(hunk.oldStart, hunk.oldLines)}`;
+  const hunkLabel = `  @@ ${formatLineRange(hunk.oldStart, hunk.oldLines)}`;
   const remaining = width - hunkLabel.length - 1;
   output.push(`${hunkLabel} ${'─'.repeat(Math.max(0, remaining))}`);
 

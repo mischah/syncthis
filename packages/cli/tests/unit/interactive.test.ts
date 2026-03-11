@@ -22,12 +22,14 @@ vi.mock('@clack/prompts', () => ({
   isCancel: mockIsCancel,
 }));
 
-const { mockRenderConflictDiff } = vi.hoisted(() => ({
+const { mockRenderConflictDiff, mockRenderStatusLine } = vi.hoisted(() => ({
   mockRenderConflictDiff: vi.fn(() => 'diff output'),
+  mockRenderStatusLine: vi.fn(() => 'status line'),
 }));
 
 vi.mock('../../src/conflict/diff-renderer.js', () => ({
   renderConflictDiff: mockRenderConflictDiff,
+  renderStatusLine: mockRenderStatusLine,
 }));
 
 const { mockResolveFile } = vi.hoisted(() => ({
@@ -221,7 +223,7 @@ describe('resolveInteractive', () => {
     expect(mockSelect).toHaveBeenCalledTimes(2);
   });
 
-  it('progress: log.step called with "[1/3]" format', async () => {
+  it('progress: renderStatusLine called for each file', async () => {
     mockSelect.mockResolvedValue('local');
 
     await resolveInteractive({
@@ -231,9 +233,15 @@ describe('resolveInteractive', () => {
       dirPath: FAKE_DIR,
     });
 
-    expect(mockLogStep).toHaveBeenNthCalledWith(1, '[1/3] notes/daily.md');
-    expect(mockLogStep).toHaveBeenNthCalledWith(2, '[2/3] notes/todo.md');
-    expect(mockLogStep).toHaveBeenNthCalledWith(3, '[3/3] notes/ideas.md');
+    expect(mockRenderStatusLine).toHaveBeenCalledWith(
+      expect.objectContaining({ fileIndex: 0, fileTotal: 3, fileName: 'daily.md' }),
+    );
+    expect(mockRenderStatusLine).toHaveBeenCalledWith(
+      expect.objectContaining({ fileIndex: 1, fileTotal: 3, fileName: 'todo.md' }),
+    );
+    expect(mockRenderStatusLine).toHaveBeenCalledWith(
+      expect.objectContaining({ fileIndex: 2, fileTotal: 3, fileName: 'ideas.md' }),
+    );
   });
 
   it('multiple files: all processed sequentially, decisions array correct', async () => {
@@ -372,6 +380,7 @@ describe('resolveInteractive', () => {
       LOCAL_CONTENT,
       REMOTE_CONTENT,
       'notes/daily.md',
+      { index: 0, total: 1, resolved: 0 },
     );
     expect(mockWriteFile).toHaveBeenCalledWith(`${FAKE_DIR}/notes/daily.md`, 'merged\n', 'utf8');
     expect(mockGit.raw).not.toHaveBeenCalledWith(['rebase', '--abort']);

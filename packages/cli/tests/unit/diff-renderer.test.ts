@@ -86,12 +86,12 @@ describe('getContextLines', () => {
     expect(getContextLines(49)).toBe('full');
   });
 
-  it('50 lines → 5', () => {
-    expect(getContextLines(50)).toBe(5);
+  it('50 lines → 3', () => {
+    expect(getContextLines(50)).toBe(3);
   });
 
-  it('500 lines → 5', () => {
-    expect(getContextLines(500)).toBe(5);
+  it('500 lines → 3', () => {
+    expect(getContextLines(500)).toBe(3);
   });
 });
 
@@ -278,23 +278,23 @@ describe('highlightWordDiff', () => {
 // ---------------------------------------------------------------------------
 
 describe('renderSingleHunk', () => {
-  it('shows hunk counter in header', () => {
+  it('shows line range in header', () => {
     const diff = createTwoFilesPatch('f', 'f', 'hello\nworld\n', 'hello\nearth\n', '', '', {
       context: 1,
     });
     const hunks = parseUnifiedDiff(diff);
-    const out = renderSingleHunk(hunks[0], 0, 1);
-    expect(out).toContain('[1/1]');
+    const out = renderSingleHunk(hunks[0]);
+    expect(out).toContain('@@');
     expect(out).toContain('Zeile');
   });
 
-  it('shows correct counter for multiple hunks', () => {
+  it('does not contain index/total counter', () => {
     const diff = createTwoFilesPatch('f', 'f', 'hello\nworld\n', 'hello\nearth\n', '', '', {
       context: 1,
     });
     const hunks = parseUnifiedDiff(diff);
-    const out = renderSingleHunk(hunks[0], 0, 3);
-    expect(out).toContain('[1/3]');
+    const out = renderSingleHunk(hunks[0]);
+    expect(out).not.toMatch(/\[\d+\/\d+\]/);
   });
 
   it('contains word-level highlighting', () => {
@@ -302,7 +302,7 @@ describe('renderSingleHunk', () => {
       context: 0,
     });
     const hunks = parseUnifiedDiff(diff);
-    const out = renderSingleHunk(hunks[0], 0, 1);
+    const out = renderSingleHunk(hunks[0]);
     expect(out).toContain('\x1b[101m'); // bgRedBright
     expect(out).toContain('\x1b[102m'); // bgGreenBright
   });
@@ -310,7 +310,7 @@ describe('renderSingleHunk', () => {
   it('shows legend when labels provided', () => {
     const diff = createTwoFilesPatch('f', 'f', 'a\n', 'b\n', '', '', { context: 0 });
     const hunks = parseUnifiedDiff(diff);
-    const out = renderSingleHunk(hunks[0], 0, 1, {
+    const out = renderSingleHunk(hunks[0], {
       localLabel: 'local version',
       remoteLabel: 'remote version',
     });
@@ -322,7 +322,7 @@ describe('renderSingleHunk', () => {
     // Remote adds a line that local doesn't have → oldLines=0
     const diff = createTwoFilesPatch('f', 'f', 'a\nb\n', 'a\nnew\nb\n', '', '', { context: 0 });
     const hunks = parseUnifiedDiff(diff);
-    const out = renderSingleHunk(hunks[0], 0, 1);
+    const out = renderSingleHunk(hunks[0]);
     expect(out).not.toMatch(/Zeile \d+-\d+/); // no "X-Y" range for pure additions
     expect(out).toMatch(/Zeile \d+/);
   });
@@ -330,7 +330,7 @@ describe('renderSingleHunk', () => {
   it('no legend when labels omitted', () => {
     const diff = createTwoFilesPatch('f', 'f', 'a\n', 'b\n', '', '', { context: 0 });
     const hunks = parseUnifiedDiff(diff);
-    const out = renderSingleHunk(hunks[0], 0, 1);
+    const out = renderSingleHunk(hunks[0]);
     expect(out).not.toContain('local version');
     expect(out).not.toContain('remote version');
   });

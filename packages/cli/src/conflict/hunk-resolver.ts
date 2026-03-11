@@ -1,7 +1,7 @@
-import { isCancel, select } from '@clack/prompts';
+import { isCancel, log, select } from '@clack/prompts';
 import { Chalk } from 'chalk';
 import { createTwoFilesPatch, structuredPatch } from 'diff';
-import { parseUnifiedDiff, renderSingleHunk } from './diff-renderer.js';
+import { parseUnifiedDiff, renderSingleHunk, renderStatusLine } from './diff-renderer.js';
 
 const chalk = new Chalk({ level: 3 });
 
@@ -81,6 +81,12 @@ export function getHunkCount(localContent: string, remoteContent: string): numbe
     .length;
 }
 
+export interface FileProgress {
+  index: number;
+  total: number;
+  resolved: number;
+}
+
 /**
  * Interactive UI: shows each diff hunk and asks the user to decide per-hunk.
  * Returns 'back' if the user wants to return to the file-level menu.
@@ -89,6 +95,7 @@ export async function resolveChunkByChunk(
   localContent: string,
   remoteContent: string,
   filePath: string,
+  fileProgress: FileProgress,
 ): Promise<ChunkByChunkResult> {
   // Use context:0 for display so hunk count matches applyHunkDecisions
   const unifiedDiff = createTwoFilesPatch('f', 'f', localContent, remoteContent, '', '', {
@@ -102,9 +109,23 @@ export async function resolveChunkByChunk(
 
   const total = hunks.length;
   const decisions: HunkDecision[] = [];
+  const fileName = filePath.split('/').pop() ?? filePath;
 
   for (let i = 0; i < total; i++) {
-    const hunkOutput = renderSingleHunk(hunks[i], i, total, {
+    console.clear();
+    log.step(
+      renderStatusLine({
+        fileIndex: fileProgress.index,
+        fileTotal: fileProgress.total,
+        fileName,
+        filesResolved: fileProgress.resolved,
+        hunkIndex: i,
+        hunkTotal: total,
+        hunksResolved: i,
+      }),
+    );
+
+    const hunkOutput = renderSingleHunk(hunks[i], {
       localLabel: 'local version',
       remoteLabel: 'remote version',
     });

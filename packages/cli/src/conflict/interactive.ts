@@ -4,7 +4,7 @@ import { intro, isCancel, log, outro, select } from '@clack/prompts';
 import { Chalk } from 'chalk';
 import type { SimpleGit } from 'simple-git';
 import type { Logger } from '../logger.js';
-import { renderConflictDiff } from './diff-renderer.js';
+import { renderConflictDiff, renderStatusLine } from './diff-renderer.js';
 import { getHunkCount, resolveChunkByChunk } from './hunk-resolver.js';
 import { type ConflictFile, resolveFile } from './resolver.js';
 
@@ -49,23 +49,37 @@ export async function resolveInteractive(
   for (let i = 0; i < total; i++) {
     const file = files[i];
     const { filePath } = file;
-
-    log.step(`[${i + 1}/${total}] ${filePath}`);
+    const fileName = path.basename(filePath);
 
     const localContent = await git.raw(['show', `:2:${filePath}`]);
     const remoteContent = await git.raw(['show', `:3:${filePath}`]);
 
-    const diffOutput = renderConflictDiff(filePath, localContent, remoteContent, {
-      localLabel: 'local version',
-      remoteLabel: 'remote version',
-    });
-    console.log(diffOutput);
-
     const hunkCount = getHunkCount(localContent, remoteContent);
+
+    const renderFileView = () => {
+      const statusLine = renderStatusLine({
+        fileIndex: i,
+        fileTotal: total,
+        fileName,
+        filesResolved: resolvedFiles.length,
+        hunkTotal: hunkCount > 1 ? hunkCount : undefined,
+      });
+      console.clear();
+      log.step(statusLine);
+      const diffOutput = renderConflictDiff(filePath, localContent, remoteContent, {
+        localLabel: 'local version',
+        remoteLabel: 'remote version',
+      });
+      console.log(diffOutput);
+      log.step(statusLine);
+    };
+
+    renderFileView();
+
     let fileResolved = false;
     while (!fileResolved) {
       const choice = await select({
-        message: `How do you want to resolve ${path.basename(filePath)}?`,
+        message: `How do you want to resolve ${fileName}?`,
         options: [
           {
             value: 'local',
@@ -102,9 +116,13 @@ export async function resolveInteractive(
       }
 
       if (choice === 'chunk-by-chunk') {
-        const chunkResult = await resolveChunkByChunk(localContent, remoteContent, filePath);
+        const chunkResult = await resolveChunkByChunk(localContent, remoteContent, filePath, {
+          index: i,
+          total,
+          resolved: resolvedFiles.length,
+        });
         if (chunkResult.status === 'back') {
-          console.log(diffOutput);
+          renderFileView();
           continue;
         }
         const fullPath = path.join(dirPath, filePath);
@@ -131,6 +149,7 @@ export async function resolveInteractive(
     }
   }
 
+  console.clear();
   outro(`✓ All conflicts resolved. ${resolvedFiles.length} files resolved.`);
 
   return { status: 'resolved', resolvedFiles, conflictCopies, decisions };
