@@ -1,5 +1,6 @@
 import { access } from 'node:fs/promises';
 import { join } from 'node:path';
+import chalk from 'chalk';
 import simpleGit from 'simple-git';
 import { loadConfig } from '../config.js';
 import { resolveInteractive } from '../conflict/interactive.js';
@@ -83,7 +84,9 @@ export async function handleResolve(options: ResolveOptions): Promise<void> {
 
   try {
     await git.push('origin', config.branch);
-    console.log(`✓ All conflicts resolved. ${totalResolved} files resolved, pushed to origin.`);
+    console.log(
+      `${chalk.green('✓')} All conflicts resolved. ${totalResolved} files resolved, pushed to origin.`,
+    );
   } catch (err) {
     console.warn(
       `Warning: Conflicts resolved but push failed: ${String(err)}. Will retry on next sync cycle.`,

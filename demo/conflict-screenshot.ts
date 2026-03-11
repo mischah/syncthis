@@ -93,7 +93,7 @@ async function main() {
   }
 
   console.clear();
-  outro('✓ All conflicts resolved. 1 file resolved.');
+  outro(`${chalk.green('✓')} All conflicts resolved. 1 file resolved.`);
 }
 
 main();
