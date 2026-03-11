@@ -11,6 +11,12 @@ Commits, pulls, and pushes your changes on a configurable schedule — no manual
 
 **Primary use case:** Keep your [Obsidian](https://obsidian.md) vault in sync across multiple devices.
 
+### Smart Conflict Resolution
+
+When the same file is edited on two devices, syncthis detects the conflict and lets you resolve it interactively — with a word-level diff and per-hunk granularity:
+
+![Conflict Resolution](demo/conflict-resolution.gif)
+
 ---
 
 ## Table of Contents
@@ -276,7 +282,7 @@ syncthis resolve --path ~/vault
 ```
 
 - Shows a word-level diff for each conflicting file.
-- Prompts you to choose `local`, `remote`, `both`, or `abort` per file.
+- Prompts you to choose `local`, `remote`, `both`, `chunk-by-chunk`, or `abort` per file.
 - Continues the rebase after each resolution step.
 - Pushes to the remote once all conflicts are resolved.
 
@@ -415,7 +421,7 @@ syncthis start
 
 Pauses the sync and prompts you interactively to resolve each conflict:
 
-- **In foreground / TTY mode:** Shows a word-level diff and prompts you inline to choose `local` / `remote` / `both` / `abort` per file.
+- **In foreground / TTY mode:** Shows a word-level diff and prompts you inline to choose per file: `local` / `remote` / `both` / `chunk-by-chunk` / `abort`. The chunk-by-chunk mode lets you decide individually for each diff hunk.
 - **In background service mode (non-TTY):** The rebase is left open. Run `syncthis resolve` in the same directory to complete resolution interactively.
 
 ---
@@ -521,6 +527,7 @@ syncthis/
 │       │   ├── conflict/
 │       │   │   ├── resolver.ts          # Conflict detection & strategy dispatch
 │       │   │   ├── interactive.ts       # Interactive prompts & resolution logic
+│       │   │   ├── hunk-resolver.ts     # Chunk-by-chunk per-hunk resolution
 │       │   │   ├── diff-renderer.ts     # Word-level diff rendering
 │       │   │   ├── conflict-filename.ts # Conflict copy filename generation
 │       │   │   └── notify.ts            # Conflict notification hooks

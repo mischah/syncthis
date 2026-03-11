@@ -4,3 +4,4 @@ coverage
 .syncthis
 .claude
 .DS_Store
+demo/*.png
