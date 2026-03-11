@@ -38,12 +38,14 @@ vi.mock('../../src/conflict/resolver.js', () => ({
   resolveFile: mockResolveFile,
 }));
 
-const { mockResolveChunkByChunk } = vi.hoisted(() => ({
+const { mockResolveChunkByChunk, mockGetHunkCount } = vi.hoisted(() => ({
   mockResolveChunkByChunk: vi.fn(),
+  mockGetHunkCount: vi.fn(() => 2),
 }));
 
 vi.mock('../../src/conflict/hunk-resolver.js', () => ({
   resolveChunkByChunk: mockResolveChunkByChunk,
+  getHunkCount: mockGetHunkCount,
 }));
 
 const { mockWriteFile } = vi.hoisted(() => ({
@@ -412,5 +414,35 @@ describe('resolveInteractive', () => {
     });
 
     expect(mockResolveFile).not.toHaveBeenCalled();
+  });
+
+  it('single hunk: chunk-by-chunk option not included in select options', async () => {
+    mockGetHunkCount.mockReturnValue(1);
+    mockSelect.mockResolvedValue('local');
+
+    await resolveInteractive({
+      git: mockGit as never,
+      files: [FILE_A],
+      logger: makeLogger(),
+      dirPath: FAKE_DIR,
+    });
+
+    const options: Array<{ value: string }> = mockSelect.mock.calls[0][0].options;
+    expect(options.some((o) => o.value === 'chunk-by-chunk')).toBe(false);
+  });
+
+  it('multiple hunks: chunk-by-chunk option included in select options', async () => {
+    mockGetHunkCount.mockReturnValue(3);
+    mockSelect.mockResolvedValue('local');
+
+    await resolveInteractive({
+      git: mockGit as never,
+      files: [FILE_A],
+      logger: makeLogger(),
+      dirPath: FAKE_DIR,
+    });
+
+    const options: Array<{ value: string }> = mockSelect.mock.calls[0][0].options;
+    expect(options.some((o) => o.value === 'chunk-by-chunk')).toBe(true);
   });
 });

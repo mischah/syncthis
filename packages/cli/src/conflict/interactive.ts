@@ -5,7 +5,7 @@ import { Chalk } from 'chalk';
 import type { SimpleGit } from 'simple-git';
 import type { Logger } from '../logger.js';
 import { renderConflictDiff } from './diff-renderer.js';
-import { resolveChunkByChunk } from './hunk-resolver.js';
+import { getHunkCount, resolveChunkByChunk } from './hunk-resolver.js';
 import { type ConflictFile, resolveFile } from './resolver.js';
 
 const chalk = new Chalk({ level: 3 });
@@ -61,6 +61,7 @@ export async function resolveInteractive(
     });
     console.log(diffOutput);
 
+    const hunkCount = getHunkCount(localContent, remoteContent);
     let fileResolved = false;
     while (!fileResolved) {
       const choice = await select({
@@ -77,11 +78,15 @@ export async function resolveInteractive(
             hint: 'discard local changes',
           },
           { value: 'both', label: '  Keep both versions', hint: 'remote saved as .conflict copy' },
-          {
-            value: 'chunk-by-chunk',
-            label: '  Resolve chunk-by-chunk',
-            hint: 'decide per diff hunk',
-          },
+          ...(hunkCount > 1
+            ? [
+                {
+                  value: 'chunk-by-chunk',
+                  label: '  Resolve chunk-by-chunk',
+                  hint: 'decide per diff hunk',
+                },
+              ]
+            : []),
           { value: 'abort', label: '  Abort rebase', hint: 'cancel and undo all changes' },
         ],
       });

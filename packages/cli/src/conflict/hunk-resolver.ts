@@ -74,6 +74,14 @@ export function applyHunkDecisions(
 }
 
 /**
+ * Returns the number of diff hunks between localContent and remoteContent.
+ */
+export function getHunkCount(localContent: string, remoteContent: string): number {
+  return structuredPatch('f', 'f', localContent, remoteContent, '', '', { context: 0 }).hunks
+    .length;
+}
+
+/**
  * Interactive UI: shows each diff hunk and asks the user to decide per-hunk.
  * Returns 'back' if the user wants to return to the file-level menu.
  */
