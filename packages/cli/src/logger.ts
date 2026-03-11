@@ -1,5 +1,6 @@
 import { appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { sendDesktopNotification } from './notify/desktop.js';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -17,8 +18,12 @@ const LEVEL_ORDER: Record<LogLevel, number> = {
   error: 3,
 };
 
-export function createLogger(options: { level: LogLevel; logDir: string }): Logger {
-  const { level, logDir } = options;
+export function createLogger(options: {
+  level: LogLevel;
+  logDir: string;
+  notify?: boolean;
+}): Logger {
+  const { level, logDir, notify = false } = options;
   const logFile = join(logDir, 'syncthis.log');
   let logDirEnsured = false;
 
@@ -47,6 +52,10 @@ export function createLogger(options: { level: LogLevel; logDir: string }): Logg
 
     ensureLogDir();
     appendFileSync(logFile, `${line}\n`);
+
+    if (notify && (msgLevel === 'warn' || msgLevel === 'error')) {
+      void sendDesktopNotification('syncthis', args.map((a) => String(a)).join(' '));
+    }
   }
 
   return {
