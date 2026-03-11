@@ -53,14 +53,14 @@ beforeEach(() => {
 
 describe('getConflictFiles', () => {
   it('parses a single conflict file', async () => {
-    mockGit.raw.mockResolvedValueOnce('notes/daily.md\n');
+    mockGit.raw.mockResolvedValueOnce('notes/daily.md\0');
     const files = await getConflictFiles(mockGit as never);
     expect(files).toEqual([{ filePath: 'notes/daily.md' }]);
-    expect(mockGit.raw).toHaveBeenCalledWith(['diff', '--name-only', '--diff-filter=U']);
+    expect(mockGit.raw).toHaveBeenCalledWith(['diff', '-z', '--name-only', '--diff-filter=U']);
   });
 
   it('parses multiple conflict files', async () => {
-    mockGit.raw.mockResolvedValueOnce('notes/daily.md\nnotes/todo.md\n');
+    mockGit.raw.mockResolvedValueOnce('notes/daily.md\0notes/todo.md\0');
     const files = await getConflictFiles(mockGit as never);
     expect(files).toEqual([{ filePath: 'notes/daily.md' }, { filePath: 'notes/todo.md' }]);
   });
@@ -69,6 +69,12 @@ describe('getConflictFiles', () => {
     mockGit.raw.mockResolvedValueOnce('');
     const files = await getConflictFiles(mockGit as never);
     expect(files).toEqual([]);
+  });
+
+  it('parses filenames with non-ASCII characters', async () => {
+    mockGit.raw.mockResolvedValueOnce('Schule/Deutsch Lösungen.md\0');
+    const files = await getConflictFiles(mockGit as never);
+    expect(files).toEqual([{ filePath: 'Schule/Deutsch Lösungen.md' }]);
   });
 });
 
@@ -309,7 +315,7 @@ describe('resolveRebase', () => {
   it('one step, one conflict → status resolved', async () => {
     const logger = makeLogger();
     mockGit.raw
-      .mockResolvedValueOnce('note.md\n') // getConflictFiles
+      .mockResolvedValueOnce('note.md\0') // getConflictFiles
       .mockResolvedValueOnce('remote content') // git show
       .mockResolvedValueOnce(undefined) // checkout --ours
       .mockResolvedValueOnce(undefined) // rebase --continue
@@ -327,12 +333,12 @@ describe('resolveRebase', () => {
     const logger = makeLogger();
     mockGit.raw
       // Step 1
-      .mockResolvedValueOnce('note.md\n') // getConflictFiles
+      .mockResolvedValueOnce('note.md\0') // getConflictFiles
       .mockResolvedValueOnce('content 1') // git show
       .mockResolvedValueOnce(undefined) // checkout --ours
       .mockResolvedValueOnce(undefined) // rebase --continue
       // Step 2
-      .mockResolvedValueOnce('todo.md\n') // getConflictFiles
+      .mockResolvedValueOnce('todo.md\0') // getConflictFiles
       .mockResolvedValueOnce('content 2') // git show
       .mockResolvedValueOnce(undefined) // checkout --ours
       .mockResolvedValueOnce(undefined) // rebase --continue
@@ -353,7 +359,7 @@ describe('resolveRebase', () => {
     // 3 iterations of conflicts (steps 1, 2, 3 — step 3 exceeds limit of 2)
     for (let i = 0; i < maxSteps + 1; i++) {
       mockGit.raw
-        .mockResolvedValueOnce('note.md\n') // getConflictFiles
+        .mockResolvedValueOnce('note.md\0') // getConflictFiles
         .mockResolvedValueOnce('remote content') // git show
         .mockResolvedValueOnce(undefined) // checkout --ours
         .mockResolvedValueOnce(undefined); // rebase --continue
@@ -371,7 +377,7 @@ describe('resolveRebase', () => {
   it('no conflict after rebase --continue → immediately resolved on next iteration', async () => {
     const logger = makeLogger();
     mockGit.raw
-      .mockResolvedValueOnce('note.md\n') // getConflictFiles → has conflict
+      .mockResolvedValueOnce('note.md\0') // getConflictFiles → has conflict
       .mockResolvedValueOnce('remote content') // git show
       .mockResolvedValueOnce(undefined) // checkout --ours
       .mockResolvedValueOnce(undefined) // rebase --continue → succeeds
@@ -387,7 +393,7 @@ describe('resolveRebase', () => {
     // in-loop rebase --continue throws; post-loop guard retries and succeeds
     const logger = makeLogger();
     mockGit.raw
-      .mockResolvedValueOnce('note.md\n') // getConflictFiles → has conflict
+      .mockResolvedValueOnce('note.md\0') // getConflictFiles → has conflict
       .mockResolvedValueOnce('remote content') // git show
       .mockResolvedValueOnce(undefined) // checkout --theirs
       .mockRejectedValueOnce(new Error('rebase error')) // in-loop rebase --continue throws
@@ -404,7 +410,7 @@ describe('resolveRebase', () => {
     // rebase is stuck: both in-loop and post-loop rebase --continue throw
     const logger = makeLogger();
     mockGit.raw
-      .mockResolvedValueOnce('note.md\n') // getConflictFiles → has conflict
+      .mockResolvedValueOnce('note.md\0') // getConflictFiles → has conflict
       .mockResolvedValueOnce('remote content') // git show
       .mockResolvedValueOnce(undefined) // checkout --theirs
       .mockRejectedValueOnce(new Error('rebase error')) // in-loop rebase --continue throws

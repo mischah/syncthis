@@ -19,9 +19,9 @@ export interface ResolveResult {
 }
 
 export async function getConflictFiles(git: SimpleGit): Promise<ConflictFile[]> {
-  const output = await git.raw(['diff', '--name-only', '--diff-filter=U']);
+  const output = await git.raw(['diff', '-z', '--name-only', '--diff-filter=U']);
   return output
-    .split('\n')
+    .split('\0')
     .filter(Boolean)
     .map((filePath) => ({ filePath }));
 }
