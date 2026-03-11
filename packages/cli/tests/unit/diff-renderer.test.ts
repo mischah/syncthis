@@ -334,4 +334,23 @@ describe('renderSingleHunk', () => {
     expect(out).not.toContain('local version');
     expect(out).not.toContain('remote version');
   });
+
+  it('shows separator lines and file path when filePath provided', () => {
+    const diff = createTwoFilesPatch('f', 'f', 'a\n', 'b\n', '', '', { context: 0 });
+    const hunks = parseUnifiedDiff(diff);
+    const out = renderSingleHunk(hunks[0], { filePath: 'notes/test.md', terminalWidth: 40 });
+    const lines = out.split('\n');
+    expect(lines[0]).toBe('─'.repeat(40));
+    expect(lines[1]).toBe('  notes/test.md');
+    expect(lines[2]).toBe('─'.repeat(40));
+  });
+
+  it('shows separator lines without file path when filePath omitted', () => {
+    const diff = createTwoFilesPatch('f', 'f', 'a\n', 'b\n', '', '', { context: 0 });
+    const hunks = parseUnifiedDiff(diff);
+    const out = renderSingleHunk(hunks[0], { terminalWidth: 40 });
+    const lines = out.split('\n');
+    expect(lines[0]).toBe('─'.repeat(40));
+    expect(lines[1]).toBe('─'.repeat(40));
+  });
 });

@@ -21,6 +21,11 @@ export interface DiffRendererOptions {
   terminalWidth?: number;
   localLabel?: string;
   remoteLabel?: string;
+  filePath?: string;
+}
+
+export function clearScreen(): void {
+  process.stdout.write('\x1B[2J\x1B[3J\x1B[H');
 }
 
 export function parseUnifiedDiff(diff: string): DiffHunk[] {
@@ -245,16 +250,21 @@ export function renderStatusLine(opts: StatusLineOptions): string {
 
 export function renderSingleHunk(hunk: DiffHunk, options?: DiffRendererOptions): string {
   const width = options?.terminalWidth ?? process.stdout.columns ?? 80;
+  const hrLine = makeLine('─', width);
   const output: string[] = [];
 
-  output.push(renderHunkHeader(hunk, width));
-
+  output.push(hrLine);
+  if (options?.filePath) {
+    output.push(`  ${options.filePath}`);
+  }
   if (options?.localLabel && options?.remoteLabel) {
     output.push(
       `  ${chalk.red('■')} ${options.localLabel}   ${chalk.green('■')} ${options.remoteLabel}`,
     );
   }
+  output.push(hrLine);
 
+  output.push(renderHunkHeader(hunk, width));
   output.push(...renderDiffLines(hunk.lines));
 
   return output.join('\n');

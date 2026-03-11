@@ -30,6 +30,7 @@ const { mockRenderConflictDiff, mockRenderStatusLine } = vi.hoisted(() => ({
 vi.mock('../../src/conflict/diff-renderer.js', () => ({
   renderConflictDiff: mockRenderConflictDiff,
   renderStatusLine: mockRenderStatusLine,
+  clearScreen: vi.fn(),
 }));
 
 const { mockResolveFile } = vi.hoisted(() => ({

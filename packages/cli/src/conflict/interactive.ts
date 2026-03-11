@@ -4,7 +4,7 @@ import { intro, isCancel, log, outro, select } from '@clack/prompts';
 import { Chalk } from 'chalk';
 import type { SimpleGit } from 'simple-git';
 import type { Logger } from '../logger.js';
-import { renderConflictDiff, renderStatusLine } from './diff-renderer.js';
+import { clearScreen, renderConflictDiff, renderStatusLine } from './diff-renderer.js';
 import { getHunkCount, resolveChunkByChunk } from './hunk-resolver.js';
 import { type ConflictFile, resolveFile } from './resolver.js';
 
@@ -65,7 +65,7 @@ export async function resolveInteractive(
         file: { index: i, total, resolved: resolvedFiles.length },
         fileName,
       });
-      console.clear();
+      clearScreen();
       log.step(statusLine);
       console.log(diffOutput);
       log.step(statusLine);
@@ -146,7 +146,7 @@ export async function resolveInteractive(
     }
   }
 
-  console.clear();
+  clearScreen();
   outro(`✓ All conflicts resolved. ${resolvedFiles.length} files resolved.`);
 
   return { status: 'resolved', resolvedFiles, conflictCopies, decisions };

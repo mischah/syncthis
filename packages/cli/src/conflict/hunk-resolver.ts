@@ -4,6 +4,7 @@ import { Chalk } from 'chalk';
 import { createTwoFilesPatch, structuredPatch } from 'diff';
 import {
   type ProgressInfo,
+  clearScreen,
   parseUnifiedDiff,
   renderSingleHunk,
   renderStatusLine,
@@ -112,7 +113,7 @@ export async function resolveChunkByChunk(
   const fileName = path.basename(filePath);
 
   for (let i = 0; i < total; i++) {
-    console.clear();
+    clearScreen();
     log.step(
       renderStatusLine({
         file: fileProgress,
@@ -124,6 +125,7 @@ export async function resolveChunkByChunk(
     const hunkOutput = renderSingleHunk(hunks[i], {
       localLabel: 'local version',
       remoteLabel: 'remote version',
+      filePath,
     });
     console.log(hunkOutput);
 
