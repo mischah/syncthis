@@ -65,7 +65,7 @@ export function parseUnifiedDiff(diff: string): DiffHunk[] {
 
 export function getContextLines(totalLines: number): number | 'full' {
   if (totalLines < 50) return 'full';
-  return 5;
+  return 4;
 }
 
 export function highlightWordDiff(
