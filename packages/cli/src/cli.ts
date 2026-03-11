@@ -35,6 +35,7 @@ const COMMAND_HELP: Record<string, string> = {
     --log-level         Log verbosity: debug, info, warn, error (default: info)
     --label             Custom service name
     --enable-autostart  Start service on login
+    --no-notify         Disable desktop notifications
     --path              Target directory (default: current directory)
 `,
   resolve: `
@@ -121,6 +122,7 @@ const cli = meow(
       --log-level         Log verbosity: debug, info, warn, error (default: info)
       --label             Custom service name
       --enable-autostart  Start service on login
+      --no-notify         Disable desktop notifications
 
       stop            Stop background sync service
       --label             Custom service name
@@ -172,6 +174,7 @@ const cli = meow(
       label: { type: 'string' },
       foreground: { type: 'boolean', default: false },
       enableAutostart: { type: 'boolean', default: false },
+      notify: { type: 'boolean', default: true },
       stale: { type: 'boolean', default: false },
       follow: { type: 'boolean', default: false, shortFlag: 'f' },
       lines: { type: 'number', default: 50, shortFlag: 'n' },
@@ -220,6 +223,7 @@ switch (command) {
       logLevel: cli.flags.logLevel,
       label: cli.flags.label,
       enableAutostart: cli.flags.enableAutostart,
+      notify: cli.flags.notify,
     });
     break;
   case 'stop':
