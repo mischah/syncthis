@@ -1,9 +1,11 @@
+import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { intro, isCancel, log, outro, select } from '@clack/prompts';
 import { Chalk } from 'chalk';
 import type { SimpleGit } from 'simple-git';
 import type { Logger } from '../logger.js';
 import { renderConflictDiff } from './diff-renderer.js';
+import { resolveChunkByChunk } from './hunk-resolver.js';
 import { type ConflictFile, resolveFile } from './resolver.js';
 
 const chalk = new Chalk({ level: 3 });
@@ -21,7 +23,7 @@ export interface InteractiveResolveResult {
   conflictCopies: string[];
   decisions: Array<{
     filePath: string;
-    choice: 'local' | 'remote' | 'both';
+    choice: 'local' | 'remote' | 'both' | 'chunk-by-chunk';
   }>;
 }
 
@@ -36,7 +38,10 @@ export async function resolveInteractive(
 
   const resolvedFiles: string[] = [];
   const conflictCopies: string[] = [];
-  const decisions: Array<{ filePath: string; choice: 'local' | 'remote' | 'both' }> = [];
+  const decisions: Array<{
+    filePath: string;
+    choice: 'local' | 'remote' | 'both' | 'chunk-by-chunk';
+  }> = [];
   const total = files.length;
 
   intro('syncthis – Conflict Resolution');
@@ -56,44 +61,69 @@ export async function resolveInteractive(
     });
     console.log(diffOutput);
 
-    const choice = await select({
-      message: `How do you want to resolve ${path.basename(filePath)}?`,
-      options: [
-        {
-          value: 'local',
-          label: `${chalk.red('■')} Keep local version`,
-          hint: 'discard remote changes',
-        },
-        {
-          value: 'remote',
-          label: `${chalk.green('■')} Keep remote version`,
-          hint: 'discard local changes',
-        },
-        { value: 'both', label: 'Keep both versions', hint: 'remote saved as .conflict copy' },
-        { value: 'abort', label: 'Abort rebase', hint: 'cancel and undo all changes' },
-      ],
-    });
+    let fileResolved = false;
+    while (!fileResolved) {
+      const choice = await select({
+        message: `How do you want to resolve ${path.basename(filePath)}?`,
+        options: [
+          {
+            value: 'local',
+            label: `${chalk.red('■')} Keep local version`,
+            hint: 'discard remote changes',
+          },
+          {
+            value: 'remote',
+            label: `${chalk.green('■')} Keep remote version`,
+            hint: 'discard local changes',
+          },
+          { value: 'both', label: '  Keep both versions', hint: 'remote saved as .conflict copy' },
+          {
+            value: 'chunk-by-chunk',
+            label: '  Resolve chunk-by-chunk',
+            hint: 'decide per diff hunk',
+          },
+          { value: 'abort', label: '  Abort rebase', hint: 'cancel and undo all changes' },
+        ],
+      });
 
-    if (isCancel(choice)) {
-      await git.raw(['rebase', '--abort']);
-      return { status: 'cancelled', resolvedFiles, conflictCopies, decisions };
+      if (isCancel(choice)) {
+        await git.raw(['rebase', '--abort']);
+        return { status: 'cancelled', resolvedFiles, conflictCopies, decisions };
+      }
+
+      if (choice === 'abort') {
+        await git.raw(['rebase', '--abort']);
+        return { status: 'aborted', resolvedFiles, conflictCopies, decisions };
+      }
+
+      if (choice === 'chunk-by-chunk') {
+        const chunkResult = await resolveChunkByChunk(localContent, remoteContent, filePath);
+        if (chunkResult.status === 'back') {
+          console.log(diffOutput);
+          continue;
+        }
+        const fullPath = path.join(dirPath, filePath);
+        await writeFile(fullPath, chunkResult.mergedContent ?? '', 'utf8');
+        await git.add([filePath]);
+        resolvedFiles.push(filePath);
+        decisions.push({ filePath, choice: 'chunk-by-chunk' });
+        logger.info(`Resolved: ${filePath} → chunk-by-chunk`);
+        fileResolved = true;
+        continue;
+      }
+
+      const userChoice = choice as 'local' | 'remote' | 'both';
+      const timestamp = new Date();
+      const result = await resolveFile(git, file, 'auto-both', timestamp, dirPath, userChoice);
+
+      resolvedFiles.push(filePath);
+      if (result.conflictCopy) {
+        conflictCopies.push(result.conflictCopy);
+      }
+      decisions.push({ filePath, choice: userChoice });
+      logger.info(`Resolved: ${filePath} → ${userChoice}`);
+      fileResolved = true;
     }
-
-    if (choice === 'abort') {
-      await git.raw(['rebase', '--abort']);
-      return { status: 'aborted', resolvedFiles, conflictCopies, decisions };
-    }
-
-    const userChoice = choice as 'local' | 'remote' | 'both';
-    const timestamp = new Date();
-    const result = await resolveFile(git, file, 'auto-both', timestamp, dirPath, userChoice);
-
-    resolvedFiles.push(filePath);
-    if (result.conflictCopy) {
-      conflictCopies.push(result.conflictCopy);
-    }
-    decisions.push({ filePath, choice: userChoice });
-    logger.info(`Resolved: ${filePath} → ${userChoice}`);
   }
 
   outro(`✓ All conflicts resolved. ${resolvedFiles.length} files resolved.`);

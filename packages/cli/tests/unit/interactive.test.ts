@@ -38,8 +38,25 @@ vi.mock('../../src/conflict/resolver.js', () => ({
   resolveFile: mockResolveFile,
 }));
 
+const { mockResolveChunkByChunk } = vi.hoisted(() => ({
+  mockResolveChunkByChunk: vi.fn(),
+}));
+
+vi.mock('../../src/conflict/hunk-resolver.js', () => ({
+  resolveChunkByChunk: mockResolveChunkByChunk,
+}));
+
+const { mockWriteFile } = vi.hoisted(() => ({
+  mockWriteFile: vi.fn(),
+}));
+
+vi.mock('node:fs/promises', () => ({
+  writeFile: mockWriteFile,
+}));
+
 const mockGit = {
   raw: vi.fn(),
+  add: vi.fn(),
 };
 
 function makeLogger(): Logger {
@@ -64,6 +81,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockIsCancel.mockReturnValue(false);
   mockResolveFile.mockResolvedValue({ action: 'ours' });
+  mockResolveChunkByChunk.mockResolvedValue({ status: 'resolved', mergedContent: 'merged\n' });
+  mockWriteFile.mockResolvedValue(undefined);
   mockGit.raw.mockImplementation((args: string[]) => {
     if (args[0] === 'show' && args[1]?.startsWith(':2:')) return Promise.resolve(LOCAL_CONTENT);
     if (args[0] === 'show' && args[1]?.startsWith(':3:')) return Promise.resolve(REMOTE_CONTENT);
@@ -326,6 +345,64 @@ describe('resolveInteractive', () => {
     const cancelSymbol = Symbol('cancel');
     mockSelect.mockResolvedValue(cancelSymbol);
     mockIsCancel.mockReturnValue(true);
+
+    await resolveInteractive({
+      git: mockGit as never,
+      files: [FILE_A],
+      logger: makeLogger(),
+      dirPath: FAKE_DIR,
+    });
+
+    expect(mockResolveFile).not.toHaveBeenCalled();
+  });
+
+  it("user selects 'chunk-by-chunk': resolveChunkByChunk called, file written and staged", async () => {
+    mockSelect.mockResolvedValue('chunk-by-chunk');
+
+    const result = await resolveInteractive({
+      git: mockGit as never,
+      files: [FILE_A],
+      logger: makeLogger(),
+      dirPath: FAKE_DIR,
+    });
+
+    expect(mockResolveChunkByChunk).toHaveBeenCalledWith(
+      LOCAL_CONTENT,
+      REMOTE_CONTENT,
+      'notes/daily.md',
+    );
+    expect(mockWriteFile).toHaveBeenCalledWith(`${FAKE_DIR}/notes/daily.md`, 'merged\n', 'utf8');
+    expect(mockGit.raw).not.toHaveBeenCalledWith(['rebase', '--abort']);
+    expect(result.status).toBe('resolved');
+    expect(result.decisions).toEqual([{ filePath: 'notes/daily.md', choice: 'chunk-by-chunk' }]);
+  });
+
+  it("chunk-by-chunk 'back': returns to file menu, second choice resolves", async () => {
+    mockSelect.mockResolvedValueOnce('chunk-by-chunk').mockResolvedValueOnce('local');
+    mockResolveChunkByChunk.mockResolvedValue({ status: 'back' });
+
+    const result = await resolveInteractive({
+      git: mockGit as never,
+      files: [FILE_A],
+      logger: makeLogger(),
+      dirPath: FAKE_DIR,
+    });
+
+    expect(mockResolveChunkByChunk).toHaveBeenCalledTimes(1);
+    expect(mockResolveFile).toHaveBeenCalledWith(
+      mockGit,
+      FILE_A,
+      'auto-both',
+      expect.any(Date),
+      FAKE_DIR,
+      'local',
+    );
+    expect(result.status).toBe('resolved');
+    expect(result.decisions).toEqual([{ filePath: 'notes/daily.md', choice: 'local' }]);
+  });
+
+  it('chunk-by-chunk resolved: resolveFile not called', async () => {
+    mockSelect.mockResolvedValue('chunk-by-chunk');
 
     await resolveInteractive({
       git: mockGit as never,

@@ -94,6 +94,11 @@ function makeLine(char: string, width: number): string {
   return char.repeat(width);
 }
 
+function formatLineRange(oldStart: number, oldLines: number): string {
+  if (oldLines <= 1) return `Zeile ${oldStart}`;
+  return `Zeile ${oldStart}-${oldStart + oldLines - 1}`;
+}
+
 export function renderConflictDiff(
   filePath: string,
   localContent: string,
@@ -149,7 +154,7 @@ export function renderConflictDiff(
 
   for (let i = 0; i < hunks.length; i++) {
     const hunk = hunks[i];
-    const hunkLabel = `  @@ Zeile ${hunk.oldStart}-${hunk.oldStart + hunk.oldLines - 1}`;
+    const hunkLabel = `  @@ ${formatLineRange(hunk.oldStart, hunk.oldLines)}`;
     const remaining = width - hunkLabel.length - 1;
     const hunkLine = `${hunkLabel} ${makeLine('─', Math.max(0, remaining))}`;
     output.push(hunkLine);
@@ -196,4 +201,62 @@ export function renderConflictDiff(
   }
 
   return `${output.join('\n')}\n`;
+}
+
+export function renderSingleHunk(
+  hunk: DiffHunk,
+  index: number,
+  total: number,
+  options?: DiffRendererOptions,
+): string {
+  const width = options?.terminalWidth ?? process.stdout.columns ?? 80;
+  const output: string[] = [];
+
+  const hunkLabel = `  [${index + 1}/${total}] ${formatLineRange(hunk.oldStart, hunk.oldLines)}`;
+  const remaining = width - hunkLabel.length - 1;
+  output.push(`${hunkLabel} ${'─'.repeat(Math.max(0, remaining))}`);
+
+  if (options?.localLabel && options?.remoteLabel) {
+    output.push(
+      `  ${chalk.red('■')} ${options.localLabel}   ${chalk.green('■')} ${options.remoteLabel}`,
+    );
+  }
+
+  const { lines } = hunk;
+  let j = 0;
+  while (j < lines.length) {
+    const line = lines[j];
+    if (line.type === 'context') {
+      output.push(chalk.dim(`  ${line.content}`));
+      j++;
+    } else if (line.type === 'removed') {
+      const removed: string[] = [];
+      while (j < lines.length && lines[j].type === 'removed') {
+        removed.push(lines[j].content);
+        j++;
+      }
+      const added: string[] = [];
+      while (j < lines.length && lines[j].type === 'added') {
+        added.push(lines[j].content);
+        j++;
+      }
+      const pairCount = Math.min(removed.length, added.length);
+      for (let k = 0; k < pairCount; k++) {
+        const { formattedOld, formattedNew } = highlightWordDiff(removed[k], added[k]);
+        output.push(`  ${formattedOld}`);
+        output.push(`  ${formattedNew}`);
+      }
+      for (let k = pairCount; k < removed.length; k++) {
+        output.push(chalk.red(`  ${removed[k]}`));
+      }
+      for (let k = pairCount; k < added.length; k++) {
+        output.push(chalk.green(`  ${added[k]}`));
+      }
+    } else {
+      output.push(chalk.green(`  ${line.content}`));
+      j++;
+    }
+  }
+
+  return output.join('\n');
 }

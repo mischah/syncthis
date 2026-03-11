@@ -5,6 +5,7 @@ import {
   highlightWordDiff,
   parseUnifiedDiff,
   renderConflictDiff,
+  renderSingleHunk,
 } from '../../src/conflict/diff-renderer.js';
 
 // ---------------------------------------------------------------------------
@@ -269,5 +270,68 @@ describe('highlightWordDiff', () => {
     const { formattedOld, formattedNew } = highlightWordDiff('old content', '');
     expect(formattedOld).toContain('\x1b[101m'); // bgRedBright
     expect(formattedNew).toBe('');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// renderSingleHunk
+// ---------------------------------------------------------------------------
+
+describe('renderSingleHunk', () => {
+  it('shows hunk counter in header', () => {
+    const diff = createTwoFilesPatch('f', 'f', 'hello\nworld\n', 'hello\nearth\n', '', '', {
+      context: 1,
+    });
+    const hunks = parseUnifiedDiff(diff);
+    const out = renderSingleHunk(hunks[0], 0, 1);
+    expect(out).toContain('[1/1]');
+    expect(out).toContain('Zeile');
+  });
+
+  it('shows correct counter for multiple hunks', () => {
+    const diff = createTwoFilesPatch('f', 'f', 'hello\nworld\n', 'hello\nearth\n', '', '', {
+      context: 1,
+    });
+    const hunks = parseUnifiedDiff(diff);
+    const out = renderSingleHunk(hunks[0], 0, 3);
+    expect(out).toContain('[1/3]');
+  });
+
+  it('contains word-level highlighting', () => {
+    const diff = createTwoFilesPatch('f', 'f', 'hello world\n', 'hello earth\n', '', '', {
+      context: 0,
+    });
+    const hunks = parseUnifiedDiff(diff);
+    const out = renderSingleHunk(hunks[0], 0, 1);
+    expect(out).toContain('\x1b[101m'); // bgRedBright
+    expect(out).toContain('\x1b[102m'); // bgGreenBright
+  });
+
+  it('shows legend when labels provided', () => {
+    const diff = createTwoFilesPatch('f', 'f', 'a\n', 'b\n', '', '', { context: 0 });
+    const hunks = parseUnifiedDiff(diff);
+    const out = renderSingleHunk(hunks[0], 0, 1, {
+      localLabel: 'local version',
+      remoteLabel: 'remote version',
+    });
+    expect(out).toContain('local version');
+    expect(out).toContain('remote version');
+  });
+
+  it('addition-only hunk (oldLines=0): header shows "Zeile N" not "Zeile N-(N-1)"', () => {
+    // Remote adds a line that local doesn't have → oldLines=0
+    const diff = createTwoFilesPatch('f', 'f', 'a\nb\n', 'a\nnew\nb\n', '', '', { context: 0 });
+    const hunks = parseUnifiedDiff(diff);
+    const out = renderSingleHunk(hunks[0], 0, 1);
+    expect(out).not.toMatch(/Zeile \d+-\d+/); // no "X-Y" range for pure additions
+    expect(out).toMatch(/Zeile \d+/);
+  });
+
+  it('no legend when labels omitted', () => {
+    const diff = createTwoFilesPatch('f', 'f', 'a\n', 'b\n', '', '', { context: 0 });
+    const hunks = parseUnifiedDiff(diff);
+    const out = renderSingleHunk(hunks[0], 0, 1);
+    expect(out).not.toContain('local version');
+    expect(out).not.toContain('remote version');
   });
 });
