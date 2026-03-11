@@ -147,7 +147,7 @@ export async function resolveInteractive(
   }
 
   clearScreen();
-  outro(`✓ All conflicts resolved. ${resolvedFiles.length} files resolved.`);
+  outro(`${chalk.green('✓')} All conflicts resolved. ${resolvedFiles.length} files resolved.`);
 
   return { status: 'resolved', resolvedFiles, conflictCopies, decisions };
 }
