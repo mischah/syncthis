@@ -297,10 +297,11 @@ describe('runSyncCycle – isRebaseInProgress check', () => {
 describe('runSyncCycle – ask strategy', () => {
   function setupConflictScenario() {
     mockGit.raw
-      .mockResolvedValueOnce('M file1.md\n') // git status --porcelain
+      .mockResolvedValueOnce('M file1.md\n') // git status --porcelain -z
       .mockResolvedValueOnce('abc1234\n') // rev-parse HEAD (before pull)
-      .mockResolvedValueOnce('UU file1.md\n'); // post-pull status
+      .mockResolvedValueOnce('UU file1.md\n'); // post-pull status -z
     mockGit.pull.mockRejectedValue(new Error('CONFLICTS'));
+    mockGetConflictFiles.mockResolvedValueOnce([{ filePath: 'file1.md' }]);
   }
 
   it('ask + TTY + resolved → resolveInteractive called, push, status synced, interactiveDecisions set', async () => {

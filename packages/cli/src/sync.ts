@@ -59,10 +59,10 @@ export async function runSyncCycle(
   try {
     await git.pull('origin', config.branch, ['--rebase']);
   } catch (err) {
-    const postPullStatus = await git.raw(['status', '--porcelain']);
+    const postPullStatus = await git.raw(['status', '--porcelain', '-z']);
     if (hasConflictMarkers(postPullStatus)) {
       const conflictedFiles = postPullStatus
-        .split('\n')
+        .split('\0')
         .filter(Boolean)
         .filter((line) => CONFLICT_PREFIXES.some((prefix) => line.startsWith(prefix)))
         .map((line) => line.slice(3));
@@ -121,7 +121,7 @@ export async function runSyncCycle(
         }
 
         // Interactive mode: resolve conflicts in a loop (handles cascading conflicts)
-        let currentFiles = conflictedFiles.map((fp) => ({ filePath: fp }));
+        let currentFiles = await getConflictFiles(git);
         const allDecisions: Array<{ filePath: string; choice: string }> = [];
         const allConflictCopies: string[] = [];
         let steps = 0;
