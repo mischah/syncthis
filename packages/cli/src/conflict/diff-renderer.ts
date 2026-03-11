@@ -19,6 +19,8 @@ export interface DiffHunk {
 
 export interface DiffRendererOptions {
   terminalWidth?: number;
+  localLabel?: string;
+  remoteLabel?: string;
 }
 
 export function parseUnifiedDiff(diff: string): DiffHunk[] {
@@ -138,6 +140,11 @@ export function renderConflictDiff(
   const output: string[] = [];
   output.push(hrLine);
   output.push(`  ${filePath}`);
+  if (options?.localLabel && options?.remoteLabel) {
+    output.push(
+      `  ${chalk.red('■')} ${options.localLabel}   ${chalk.green('■')} ${options.remoteLabel}`,
+    );
+  }
   output.push(hrLine);
 
   for (let i = 0; i < hunks.length; i++) {

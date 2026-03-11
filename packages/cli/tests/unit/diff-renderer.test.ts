@@ -112,6 +112,21 @@ describe('renderConflictDiff', () => {
     expect(out).toContain('─');
   });
 
+  it('header contains legend when localLabel and remoteLabel are provided', () => {
+    const out = renderConflictDiff('file.txt', local, remote, {
+      localLabel: 'local version',
+      remoteLabel: 'remote version',
+    });
+    expect(out).toContain('local version');
+    expect(out).toContain('remote version');
+  });
+
+  it('header contains no legend when labels are omitted', () => {
+    const out = renderConflictDiff('file.txt', local, remote);
+    expect(out).not.toContain('local version');
+    expect(out).not.toContain('remote version');
+  });
+
   it('context lines are dimmed (ANSI sequences)', () => {
     const out = renderConflictDiff('file.txt', local, remote, { terminalWidth: 80 });
     // chalk.dim produces ESC[2m

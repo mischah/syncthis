@@ -291,6 +291,7 @@ describe('resolveInteractive', () => {
       'notes/daily.md',
       LOCAL_CONTENT,
       REMOTE_CONTENT,
+      { localLabel: 'local version', remoteLabel: 'remote version' },
     );
   });
 
