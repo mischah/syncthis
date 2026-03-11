@@ -55,21 +55,18 @@ export async function resolveInteractive(
     const remoteContent = await git.raw(['show', `:3:${filePath}`]);
 
     const hunkCount = getHunkCount(localContent, remoteContent);
+    const diffOutput = renderConflictDiff(filePath, localContent, remoteContent, {
+      localLabel: 'local version',
+      remoteLabel: 'remote version',
+    });
 
     const renderFileView = () => {
       const statusLine = renderStatusLine({
-        fileIndex: i,
-        fileTotal: total,
+        file: { index: i, total, resolved: resolvedFiles.length },
         fileName,
-        filesResolved: resolvedFiles.length,
-        hunkTotal: hunkCount > 1 ? hunkCount : undefined,
       });
       console.clear();
       log.step(statusLine);
-      const diffOutput = renderConflictDiff(filePath, localContent, remoteContent, {
-        localLabel: 'local version',
-        remoteLabel: 'remote version',
-      });
       console.log(diffOutput);
       log.step(statusLine);
     };

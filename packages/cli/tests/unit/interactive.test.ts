@@ -234,13 +234,13 @@ describe('resolveInteractive', () => {
     });
 
     expect(mockRenderStatusLine).toHaveBeenCalledWith(
-      expect.objectContaining({ fileIndex: 0, fileTotal: 3, fileName: 'daily.md' }),
+      expect.objectContaining({ file: { index: 0, total: 3, resolved: 0 }, fileName: 'daily.md' }),
     );
     expect(mockRenderStatusLine).toHaveBeenCalledWith(
-      expect.objectContaining({ fileIndex: 1, fileTotal: 3, fileName: 'todo.md' }),
+      expect.objectContaining({ file: { index: 1, total: 3, resolved: 1 }, fileName: 'todo.md' }),
     );
     expect(mockRenderStatusLine).toHaveBeenCalledWith(
-      expect.objectContaining({ fileIndex: 2, fileTotal: 3, fileName: 'ideas.md' }),
+      expect.objectContaining({ file: { index: 2, total: 3, resolved: 2 }, fileName: 'ideas.md' }),
     );
   });
 

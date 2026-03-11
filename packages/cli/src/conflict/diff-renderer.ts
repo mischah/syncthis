@@ -203,34 +203,34 @@ export function renderConflictDiff(
   return `${output.join('\n')}\n`;
 }
 
+export interface ProgressInfo {
+  index: number;
+  total: number;
+  resolved: number;
+}
+
 export interface StatusLineOptions {
-  fileIndex: number;
-  fileTotal: number;
+  file: ProgressInfo;
   fileName: string;
-  filesResolved?: number;
-  hunkIndex?: number;
-  hunkTotal?: number;
-  hunksResolved?: number;
+  hunk?: ProgressInfo;
 }
 
 export function renderStatusLine(opts: StatusLineOptions): string {
   const lines: string[] = [];
 
-  const fileResolved = opts.filesResolved ?? 0;
-  let fileLine = `  File ${opts.fileIndex + 1} of ${opts.fileTotal} · ${opts.fileName}`;
-  if (fileResolved > 0) {
-    fileLine += ` · ${fileResolved} resolved`;
+  let fileLine = `  File ${opts.file.index + 1} of ${opts.file.total} · ${opts.fileName}`;
+  if (opts.file.resolved > 0) {
+    fileLine += ` · ${opts.file.resolved} resolved`;
   }
-  if (opts.hunkIndex == null && opts.hunkTotal != null && opts.hunkTotal > 1) {
-    fileLine += ` · ${opts.hunkTotal} hunks`;
+  if (!opts.hunk && opts.file.total > 0) {
+    // At file level, we don't show hunk count — it's in the diff itself
   }
   lines.push(fileLine);
 
-  if (opts.hunkIndex != null && opts.hunkTotal != null) {
-    let hunkLine = `  Hunk ${opts.hunkIndex + 1} of ${opts.hunkTotal}`;
-    const hunksResolved = opts.hunksResolved ?? 0;
-    if (hunksResolved > 0) {
-      hunkLine += ` · ${hunksResolved} resolved`;
+  if (opts.hunk) {
+    let hunkLine = `  Hunk ${opts.hunk.index + 1} of ${opts.hunk.total}`;
+    if (opts.hunk.resolved > 0) {
+      hunkLine += ` · ${opts.hunk.resolved} resolved`;
     }
     lines.push(hunkLine);
   }
