@@ -27,13 +27,24 @@ vi.mock('../../src/config.js', () => ({
   mergeWithFlags: mockMergeWithFlags,
 }));
 
-const { mockAcquireLock, mockReleaseLock } = vi.hoisted(() => ({
+const { mockAcquireLock, mockReleaseLock, mockReadLockFile } = vi.hoisted(() => ({
   mockAcquireLock: vi.fn(),
   mockReleaseLock: vi.fn(),
+  mockReadLockFile: vi
+    .fn()
+    .mockResolvedValue({ pid: process.pid, startedAt: new Date().toISOString() }),
 }));
 vi.mock('../../src/lock.js', () => ({
   acquireLock: mockAcquireLock,
   releaseLock: mockReleaseLock,
+  readLockFile: mockReadLockFile,
+}));
+
+const { mockUpdateHealthAfterCycle } = vi.hoisted(() => ({
+  mockUpdateHealthAfterCycle: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock('../../src/health.js', () => ({
+  updateHealthAfterCycle: mockUpdateHealthAfterCycle,
 }));
 
 let capturedSchedulerCallback: (() => Promise<void>) | null = null;

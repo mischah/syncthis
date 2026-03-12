@@ -2,8 +2,9 @@ import { execFile } from 'node:child_process';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { type SyncthisConfig, loadConfig, mergeWithFlags } from '../config.js';
+import { updateHealthAfterCycle } from '../health.js';
 import { type BatchData, printJson, printJsonError } from '../json-output.js';
-import { acquireLock, releaseLock } from '../lock.js';
+import { acquireLock, readLockFile, releaseLock } from '../lock.js';
 import { type LogLevel, createLogger } from '../logger.js';
 import { type SchedulerHandle, startScheduler } from '../scheduler.js';
 import { runSyncCycle } from '../sync.js';
@@ -164,6 +165,9 @@ async function runForeground(flags: StartFlags): Promise<void> {
     process.exit(1);
   }
 
+  const lockData = await readLockFile(dirPath);
+  const startedAt = lockData?.startedAt ?? new Date().toISOString();
+
   let isShuttingDown = false;
   let schedulerHandle: SchedulerHandle | null = null;
 
@@ -190,6 +194,7 @@ async function runForeground(flags: StartFlags): Promise<void> {
 
   // Run initial sync cycle
   const initialResult = await runSyncCycle(dirPath, config, logger);
+  await updateHealthAfterCycle(dirPath, initialResult, startedAt);
   if (initialResult.status === 'conflict') {
     // ask + non-TTY: don't exit, fall through to scheduler
     // Subsequent cycles will skip via isRebaseInProgress until user runs 'syncthis resolve'
@@ -205,6 +210,7 @@ async function runForeground(flags: StartFlags): Promise<void> {
   schedulerHandle = startScheduler(config, async () => {
     if (isShuttingDown) return;
     const result = await runSyncCycle(dirPath, config, logger);
+    await updateHealthAfterCycle(dirPath, result, startedAt);
     if (result.status === 'conflict') {
       // ask + non-TTY: keep running, don't exit
       if (config.onConflict === 'ask' && !process.stdin.isTTY) return;

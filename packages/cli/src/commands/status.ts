@@ -5,6 +5,7 @@ import { type SyncthisConfig, loadConfig } from '../config.js';
 import { isRebaseInProgress } from '../conflict/resolver.js';
 import { getPlatform } from '../daemon/platform.js';
 import { generateServiceName } from '../daemon/service-name.js';
+import { readHealthFile } from '../health.js';
 import { type StatusData, printJson } from '../json-output.js';
 import { isLocked, readLockFile } from '../lock.js';
 import { printDaemonTable } from './daemon.js';
@@ -55,6 +56,7 @@ export async function handleStatus(flags: StatusFlags): Promise<void> {
       printJson('status', {
         dirPath,
         initialized: false,
+        health: null,
         config: null,
         syncProcess: { running: false },
         git: null,
@@ -76,6 +78,7 @@ export async function handleStatus(flags: StatusFlags): Promise<void> {
   const data: StatusData = {
     dirPath,
     initialized: true,
+    health: null,
     config: null,
     syncProcess: { running: false },
     git: null,
@@ -200,6 +203,34 @@ export async function handleStatus(flags: StatusFlags): Promise<void> {
     }
   } catch {
     // Platform not supported or other error — skip service section
+  }
+
+  // Health summary
+  const healthFile = await readHealthFile(dirPath);
+  if (healthFile !== null) {
+    const lockStatus = await isLocked(dirPath);
+    let healthStatus: 'healthy' | 'degraded' | 'unhealthy';
+    if (!lockStatus.locked) {
+      healthStatus = 'unhealthy';
+    } else if (healthFile.consecutiveFailures >= 5) {
+      healthStatus = 'unhealthy';
+    } else if (healthFile.consecutiveFailures > 0) {
+      healthStatus = 'degraded';
+    } else {
+      healthStatus = 'healthy';
+    }
+    data.health = { status: healthStatus, lastSyncAt: healthFile.lastSyncAt };
+    if (!flags.json) {
+      const lastSync =
+        healthFile.lastSyncAt !== null
+          ? (() => {
+              const ms = Date.now() - new Date(healthFile.lastSyncAt).getTime();
+              const m = Math.floor(ms / 60000);
+              return m < 1 ? 'just now' : `${m}m ago`;
+            })()
+          : 'never';
+      console.log(`\nHealth: ${healthStatus} (last sync ${lastSync})`);
+    }
   }
 
   if (flags.json) {

@@ -28,6 +28,7 @@ When the same file is edited on two devices, syncthis detects the conflict and l
   - [syncthis start](#syncthis-start)
   - [syncthis stop](#syncthis-stop)
   - [syncthis status](#syncthis-status)
+  - [syncthis health](#syncthis-health)
   - [syncthis list](#syncthis-list)
   - [syncthis logs](#syncthis-logs)
   - [syncthis uninstall](#syncthis-uninstall)
@@ -240,6 +241,7 @@ syncthis status --all
 - Whether a sync process is currently running (with PID).
 - Git info: branch, remote URL, number of uncommitted changes, last commit.
 - Service status: running/stopped/not installed, label, autostart.
+- Health summary: `healthy`, `degraded`, or `unhealthy` with time of last sync.
 
 Works even without `.syncthis.json` (shows "Not initialized"). With `--all`, shows a summary table of all registered services.
 
@@ -251,6 +253,45 @@ Works even without `.syncthis.json` (shows "Not initialized"). With `--all`, sho
 | `--all` | boolean | Show status of all registered services. Mutually exclusive with `--path`. |
 | `--json` | boolean | Output machine-readable JSON. |
 | `--stale` | boolean | Include services with missing directories. |
+
+---
+
+### `syncthis health`
+
+Shows whether the service is actively syncing — not just that the process is alive. Reads `.syncthis/health.json` written by the sync process after each cycle.
+
+```bash
+syncthis health
+syncthis health --path ~/vault
+syncthis health --all
+syncthis health --json
+```
+
+**Status levels:**
+
+| Status | Meaning |
+|--------|---------|
+| `healthy` | Process running, last sync successful, not overdue |
+| `degraded` | Process running but sync overdue or consecutive failures |
+| `unhealthy` | Process not running, ≥5 consecutive failures, or stuck conflict |
+
+**Example output:**
+
+```
+Health: healthy ✓
+  Last sync:    2m ago (synced)
+  Uptime:       3h 12m
+  Failures:     0 consecutive
+  Sync cycles:  47
+```
+
+**Flags:**
+
+| Flag | Type | Description |
+|------|------|-------------|
+| `--path` | string | Directory to check. Default: current directory |
+| `--all` | boolean | Show health of all registered services. Mutually exclusive with `--path`. |
+| `--json` | boolean | Output machine-readable JSON. |
 
 ---
 
@@ -585,6 +626,7 @@ syncthis/
 │       │   │   ├── resolve.ts   # Interactive conflict resolution
 │       │   │   ├── start.ts     # Dual-mode: service (default) + foreground
 │       │   │   ├── status.ts
+│       │   │   ├── health.ts    # Health check command
 │       │   │   └── daemon.ts    # Service management functions
 │       │   ├── conflict/
 │       │   │   ├── resolver.ts          # Conflict detection & strategy dispatch
@@ -605,6 +647,8 @@ syncthis/
 │       │   ├── sync.ts          # Git sync cycle
 │       │   ├── scheduler.ts     # Cron / interval scheduler
 │       │   ├── lock.ts          # Process lock management
+│       │   ├── health.ts        # Health file read/write
+│       │   ├── health-check.ts  # Health status determination
 │       │   └── logger.ts        # stdout + file logging
 │       └── tests/
 │           ├── unit/
@@ -645,7 +689,6 @@ These features are intentionally out of scope for now but may be explored later:
   - *Stage 2:* Self-contained binaries via `bun build --compile` or Node SEA, built by GitHub Actions for macOS (arm64 + x64), Linux (x64), and Windows (x64).
 - **Windows service support** — Service mode currently supports macOS (launchd) and Linux (systemd). Windows support could be added via Windows Service Manager or [NSSM](https://nssm.cc) (Non-Sucking Service Manager).
 - **Service updates** — When syncthis is updated, existing service definitions may still point to the old binary path. A `syncthis update` command or automatic detection in `syncthis status` could handle this.
-- **Health checks** — Periodic verification that the service is actually syncing (not just that the process is alive). Could detect stuck processes or persistent errors.
 - **Automated releases** — Conventional Commits + `commit-and-tag-version` (or `release-it`) for SemVer tagging, auto-generated `CHANGELOG.md`, and a GitHub Actions workflow that publishes to npm on tag push (`feat:` → minor, `fix:` → patch, `feat!:` → major).
 
 ---

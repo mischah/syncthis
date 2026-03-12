@@ -67,9 +67,23 @@ export interface BatchData {
   }>;
 }
 
+export interface HealthData {
+  dirPath: string;
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  reasons: string[];
+  processRunning: boolean;
+  uptime: number | null;
+  lastSyncAt: string | null;
+  lastSyncResult: string | null;
+  consecutiveFailures: number;
+  lastSuccessAt: string | null;
+  cycleCount: number;
+}
+
 export interface StatusData {
   dirPath: string;
   initialized: boolean;
+  health: { status: 'healthy' | 'degraded' | 'unhealthy'; lastSyncAt: string | null } | null;
   config: {
     remote: string;
     branch: string;

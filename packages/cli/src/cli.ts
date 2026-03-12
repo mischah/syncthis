@@ -1,5 +1,6 @@
 import meow from 'meow';
 import { daemonLogs, daemonStop, daemonUninstall, handleList } from './commands/daemon.js';
+import { handleHealth } from './commands/health.js';
 import { handleInit } from './commands/init.js';
 import { handleResolve } from './commands/resolve.js';
 import { handleStart } from './commands/start.js';
@@ -76,6 +77,17 @@ const COMMAND_HELP: Record<string, string> = {
     --label     Custom service name
     --path      Target directory (default: current directory)
 `,
+  health: `
+  Usage
+    $ syncthis health [options]
+
+  Show sync health: whether the service is actively syncing, not just running.
+
+  Options
+    --all       Show health of all registered services
+    --label     Custom service name
+    --path      Target directory (default: current directory)
+`,
   list: `
   Usage
     $ syncthis list [options]
@@ -140,6 +152,10 @@ const cli = meow(
 
       status          Show sync and service status
       --all               Show overview of all registered services
+      --label             Custom service name
+
+      health          Show sync health (actively syncing, not just running)
+      --all               Show health of all registered services
       --label             Custom service name
 
       resolve         Interactively resolve rebase conflicts
@@ -234,7 +250,7 @@ if (cli.flags.json) {
 
 // --all validation
 if (cli.flags.all) {
-  const allSupportedCommands = ['start', 'stop', 'uninstall', 'status'];
+  const allSupportedCommands = ['start', 'stop', 'uninstall', 'status', 'health'];
   if (command === undefined || !allSupportedCommands.includes(command)) {
     if (cli.flags.json) {
       printJsonError(
@@ -318,6 +334,16 @@ try {
     case 'status':
       if (showCommandHelp('status')) break;
       await handleStatus({
+        path: cli.flags.path,
+        label: cli.flags.label,
+        all: cli.flags.all,
+        pathExplicit: flagExplicitlyPassed('path'),
+        json: cli.flags.json,
+      });
+      break;
+    case 'health':
+      if (showCommandHelp('health')) break;
+      await handleHealth({
         path: cli.flags.path,
         label: cli.flags.label,
         all: cli.flags.all,
