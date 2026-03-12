@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock dependencies before importing the module under test
+const mockPrintDaemonTable = vi.hoisted(() => vi.fn());
+vi.mock('../../src/commands/daemon.js', () => ({
+  printDaemonTable: mockPrintDaemonTable,
+}));
+
 const mockLoadConfig = vi.hoisted(() => vi.fn());
 vi.mock('../../src/config.js', () => ({
   loadConfig: mockLoadConfig,
@@ -58,10 +63,10 @@ describe('handleStatus', () => {
     mockIsRebaseInProgress.mockResolvedValue(false);
   });
 
-  it('prints "Not initialized" when .syncthis.json does not exist', async () => {
+  it('prints "Not initialized" when .syncthis.json does not exist and --path was explicit', async () => {
     mockAccess.mockRejectedValueOnce(new Error('ENOENT'));
 
-    await handleStatus({ path: '/tmp/test' });
+    await handleStatus({ path: '/tmp/test', pathExplicit: true });
 
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Not initialized'));
   });
@@ -299,5 +304,131 @@ describe('handleStatus', () => {
     const allCalls = logSpy.mock.calls.flat().join('\n');
     expect(allCalls).not.toContain('Service:');
     expect(allCalls).not.toContain('Service: not installed');
+  });
+});
+
+describe('handleStatus --all', () => {
+  let logSpy: ReturnType<typeof vi.spyOn>;
+  let exitSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+  });
+
+  it('calls printDaemonTable with all services when platform returns daemons', async () => {
+    const daemons = [
+      {
+        serviceName: 'com.syncthis.vault',
+        label: 'vault',
+        dirPath: '/vault',
+        state: 'running',
+        autostart: false,
+        schedule: '*/5 * * * *',
+      },
+    ];
+    const mockPlatform = { listAll: vi.fn().mockResolvedValue(daemons) };
+    mockGetPlatform.mockReturnValue(mockPlatform);
+
+    await handleStatus({ path: '/tmp/test', all: true });
+
+    expect(mockPrintDaemonTable).toHaveBeenCalledWith(daemons);
+    expect(exitSpy).not.toHaveBeenCalled();
+  });
+
+  it('prints "No syncthis services registered" when no daemons', async () => {
+    const mockPlatform = { listAll: vi.fn().mockResolvedValue([]) };
+    mockGetPlatform.mockReturnValue(mockPlatform);
+
+    await handleStatus({ path: '/tmp/test', all: true });
+
+    expect(logSpy).toHaveBeenCalledWith('No syncthis services registered.');
+    expect(mockPrintDaemonTable).not.toHaveBeenCalled();
+  });
+
+  it('exits with code 1 when platform throws', async () => {
+    mockGetPlatform.mockImplementation(() => {
+      throw new Error('Unsupported platform');
+    });
+
+    await handleStatus({ path: '/tmp/test', all: true });
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
+  });
+});
+
+describe('handleStatus default behavior (no explicit --path)', () => {
+  let logSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    mockGetPlatform.mockImplementation(() => {
+      throw new Error('Unsupported platform');
+    });
+    mockIsRebaseInProgress.mockResolvedValue(false);
+  });
+
+  it('shows "no config" hint when CWD has no .syncthis.json and --path not explicit', async () => {
+    mockAccess.mockRejectedValueOnce(new Error('ENOENT'));
+
+    await handleStatus({ path: '/tmp/test', pathExplicit: false });
+
+    const allOutput = logSpy.mock.calls.flat().join('\n');
+    expect(allOutput).toContain('No syncthis config found in current directory');
+    expect(allOutput).toContain('syncthis status --all');
+    expect(allOutput).not.toContain('Not initialized');
+  });
+
+  it('shows "Not initialized" when --path was explicitly set and config missing', async () => {
+    mockAccess.mockRejectedValueOnce(new Error('ENOENT'));
+
+    await handleStatus({ path: '/tmp/test', pathExplicit: true });
+
+    const allOutput = logSpy.mock.calls.flat().join('\n');
+    expect(allOutput).toContain('Not initialized');
+    expect(allOutput).not.toContain('No syncthis config found');
+  });
+
+  it('appends --all hint after single-dir status when --path not explicit', async () => {
+    mockAccess.mockResolvedValueOnce(undefined);
+    mockLoadConfig.mockResolvedValueOnce({
+      remote: 'git@github.com:user/vault.git',
+      branch: 'main',
+      cron: '*/5 * * * *',
+      interval: null,
+    });
+    mockIsLocked.mockResolvedValueOnce({ locked: false });
+    mockGitInstance.revparse.mockResolvedValueOnce('main\n');
+    mockGitInstance.getRemotes.mockResolvedValueOnce([]);
+    mockGitInstance.raw.mockResolvedValueOnce('');
+    mockGitInstance.log.mockResolvedValueOnce({ latest: null });
+
+    await handleStatus({ path: '/tmp/test', pathExplicit: false });
+
+    const allOutput = logSpy.mock.calls.flat().join('\n');
+    expect(allOutput).toContain('syncthis status --all');
+  });
+
+  it('does not append --all hint when --path was explicit', async () => {
+    mockAccess.mockResolvedValueOnce(undefined);
+    mockLoadConfig.mockResolvedValueOnce({
+      remote: 'git@github.com:user/vault.git',
+      branch: 'main',
+      cron: '*/5 * * * *',
+      interval: null,
+    });
+    mockIsLocked.mockResolvedValueOnce({ locked: false });
+    mockGitInstance.revparse.mockResolvedValueOnce('main\n');
+    mockGitInstance.getRemotes.mockResolvedValueOnce([]);
+    mockGitInstance.raw.mockResolvedValueOnce('');
+    mockGitInstance.log.mockResolvedValueOnce({ latest: null });
+
+    await handleStatus({ path: '/tmp/test', pathExplicit: true });
+
+    const allOutput = logSpy.mock.calls.flat().join('\n');
+    expect(allOutput).not.toContain('syncthis status --all');
   });
 });

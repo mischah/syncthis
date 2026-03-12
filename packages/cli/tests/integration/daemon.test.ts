@@ -92,14 +92,13 @@ afterEach(async () => {
 // ---------------------------------------------------------------------------
 
 describe('daemonStart', () => {
-  it('exits with error when .syncthis.json is missing', async () => {
-    mockLoadConfig.mockRejectedValue(new Error("Not initialized. Run 'syncthis init' first."));
+  it('throws error when .syncthis.json is missing', async () => {
+    mockLoadConfig.mockRejectedValue(new Error('load failed'));
     const platform = makeMockPlatform();
     mockGetPlatform.mockReturnValue(platform);
 
-    await expect(daemonStart({ path: tempDir })).rejects.toThrow('process.exit(1)');
-    expect(console.error).toHaveBeenCalledWith(
-      "Error: Not initialized. Run 'syncthis init' first.",
+    await expect(daemonStart({ path: tempDir })).rejects.toThrow(
+      "Not initialized. Run 'syncthis init' first.",
     );
   });
 
@@ -285,15 +284,15 @@ describe('daemonStart', () => {
 // ---------------------------------------------------------------------------
 
 describe('daemonStop', () => {
-  it('exits with error when no service is installed', async () => {
+  it('throws error when no service is installed', async () => {
     mockLoadConfig.mockRejectedValue(new Error('no config'));
+    mockIsLocked.mockResolvedValue({ locked: false });
     const platform = makeMockPlatform({
       status: vi.fn().mockResolvedValue({ state: 'not-installed' } as DaemonStatus),
     });
     mockGetPlatform.mockReturnValue(platform);
 
-    await expect(daemonStop({ path: tempDir })).rejects.toThrow('process.exit(1)');
-    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('No service found'));
+    await expect(daemonStop({ path: tempDir })).rejects.toThrow('No service found');
   });
 
   it('kills foreground process via lock file when no service is installed', async () => {

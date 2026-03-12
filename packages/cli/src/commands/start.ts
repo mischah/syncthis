@@ -6,6 +6,7 @@ import { acquireLock, releaseLock } from '../lock.js';
 import { type LogLevel, createLogger } from '../logger.js';
 import { type SchedulerHandle, startScheduler } from '../scheduler.js';
 import { runSyncCycle } from '../sync.js';
+import type { BatchResult } from './daemon.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -19,6 +20,7 @@ export interface StartFlags {
   label?: string;
   enableAutostart?: boolean;
   notify?: boolean;
+  all?: boolean;
 }
 
 const VALID_ON_CONFLICT = ['stop', 'auto-both', 'auto-newest', 'ask'] as const;
@@ -36,16 +38,57 @@ export async function handleStart(flags: StartFlags): Promise<void> {
     return;
   }
 
-  const { daemonStart } = await import('./daemon.js');
-  await daemonStart({
-    path: flags.path,
-    label: flags.label,
-    enableAutostart: flags.enableAutostart,
-    cron: flags.cron,
-    interval: flags.interval,
-    onConflict: flags.onConflict,
-    logLevel: flags.logLevel,
-  });
+  const { daemonStart, getPlatformOrExit, printBatchSummary } = await import('./daemon.js');
+
+  if (flags.all) {
+    const platform = getPlatformOrExit();
+    const daemons = await platform.listAll();
+    if (daemons.length === 0) {
+      console.log('No syncthis services registered.');
+      return;
+    }
+    const results: BatchResult[] = [];
+    for (const d of daemons) {
+      if (d.state === 'running') {
+        results.push({
+          label: d.label,
+          dirPath: d.dirPath,
+          outcome: 'skipped',
+          message: 'already running',
+        });
+        continue;
+      }
+      try {
+        await daemonStart({ path: d.dirPath });
+        results.push({ label: d.label, dirPath: d.dirPath, outcome: 'ok', message: 'started' });
+      } catch (err) {
+        results.push({
+          label: d.label,
+          dirPath: d.dirPath,
+          outcome: 'failed',
+          message: (err as Error).message,
+        });
+      }
+    }
+    printBatchSummary(results);
+    if (results.some((r) => r.outcome === 'failed')) process.exit(1);
+    return;
+  }
+
+  try {
+    await daemonStart({
+      path: flags.path,
+      label: flags.label,
+      enableAutostart: flags.enableAutostart,
+      cron: flags.cron,
+      interval: flags.interval,
+      onConflict: flags.onConflict,
+      logLevel: flags.logLevel,
+    });
+  } catch (err) {
+    console.error(`Error: ${(err as Error).message}`);
+    process.exit(1);
+  }
 }
 
 async function runForeground(flags: StartFlags): Promise<void> {
