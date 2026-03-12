@@ -5,13 +5,6 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createLogger } from '../../src/logger.js';
 
-vi.mock('../../src/notify/desktop.js', () => ({
-  sendDesktopNotification: vi.fn().mockResolvedValue(undefined),
-}));
-
-import { sendDesktopNotification } from '../../src/notify/desktop.js';
-const mockSendDesktop = vi.mocked(sendDesktopNotification);
-
 const ISO_RE = /^\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\]/;
 
 let tempDir: string;
@@ -175,73 +168,5 @@ describe('createLogger – log-level filter', () => {
 
     // File should not exist because nothing was written
     expect(() => readFileSync(join(logDir, 'syncthis.log'), 'utf8')).toThrow();
-  });
-});
-
-describe('createLogger – desktop notifications', () => {
-  beforeEach(() => {
-    mockSendDesktop.mockClear();
-    vi.spyOn(process.stdout, 'write').mockReturnValue(true);
-  });
-
-  it('calls sendDesktopNotification on warn when notify: true', () => {
-    const logger = createLogger({
-      level: 'info',
-      logDir: join(tempDir, '.syncthis/logs'),
-      notify: true,
-    });
-    logger.warn('push failed');
-    expect(mockSendDesktop).toHaveBeenCalledWith('syncthis', 'push failed');
-  });
-
-  it('calls sendDesktopNotification on error when notify: true', () => {
-    const logger = createLogger({
-      level: 'info',
-      logDir: join(tempDir, '.syncthis/logs'),
-      notify: true,
-    });
-    logger.error('conflict detected');
-    expect(mockSendDesktop).toHaveBeenCalledWith('syncthis', 'conflict detected');
-  });
-
-  it('does not call sendDesktopNotification on info when notify: true', () => {
-    const logger = createLogger({
-      level: 'info',
-      logDir: join(tempDir, '.syncthis/logs'),
-      notify: true,
-    });
-    logger.info('synced');
-    expect(mockSendDesktop).not.toHaveBeenCalled();
-  });
-
-  it('does not call sendDesktopNotification on debug when notify: true', () => {
-    const logger = createLogger({
-      level: 'debug',
-      logDir: join(tempDir, '.syncthis/logs'),
-      notify: true,
-    });
-    logger.debug('no changes');
-    expect(mockSendDesktop).not.toHaveBeenCalled();
-  });
-
-  it('does not call sendDesktopNotification when notify: false', () => {
-    const logger = createLogger({
-      level: 'info',
-      logDir: join(tempDir, '.syncthis/logs'),
-      notify: false,
-    });
-    logger.warn('push failed');
-    logger.error('conflict');
-    expect(mockSendDesktop).not.toHaveBeenCalled();
-  });
-
-  it('does not call sendDesktopNotification when notify is omitted (default false)', () => {
-    const logger = createLogger({
-      level: 'info',
-      logDir: join(tempDir, '.syncthis/logs'),
-    });
-    logger.warn('push failed');
-    logger.error('conflict');
-    expect(mockSendDesktop).not.toHaveBeenCalled();
   });
 });

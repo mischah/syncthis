@@ -10,7 +10,6 @@ export interface SyncthisConfig {
   daemonLabel?: string | null;
   autostart?: boolean;
   onConflict: 'stop' | 'auto-both' | 'auto-newest' | 'ask';
-  notify?: boolean;
 }
 
 export interface CliFlags {
@@ -18,7 +17,6 @@ export interface CliFlags {
   cron?: string;
   interval?: number;
   onConflict?: 'stop' | 'auto-both' | 'auto-newest' | 'ask';
-  notify?: boolean;
 }
 
 const CONFIG_FILENAME = '.syncthis.json';
@@ -116,24 +114,7 @@ export function validateConfig(config: unknown): SyncthisConfig {
     onConflict = raw.onConflict as 'stop' | 'auto-both' | 'auto-newest' | 'ask';
   }
 
-  let notify: boolean | undefined;
-  if (raw.notify !== undefined) {
-    if (typeof raw.notify !== 'boolean') {
-      throw new Error('Invalid config: "notify" must be a boolean.');
-    }
-    notify = raw.notify;
-  }
-
-  return {
-    remote: raw.remote.trim(),
-    branch,
-    cron,
-    interval,
-    daemonLabel,
-    autostart,
-    onConflict,
-    notify,
-  };
+  return { remote: raw.remote.trim(), branch, cron, interval, daemonLabel, autostart, onConflict };
 }
 
 export async function loadConfig(dirPath: string): Promise<SyncthisConfig> {
@@ -157,11 +138,8 @@ export async function loadConfig(dirPath: string): Promise<SyncthisConfig> {
 
 export async function writeConfig(dirPath: string, config: SyncthisConfig): Promise<void> {
   const configPath = join(dirPath, CONFIG_FILENAME);
-  const { onConflict, notify, ...rest } = config;
-  let toWrite: Omit<SyncthisConfig, 'onConflict' | 'notify'> &
-    Partial<Pick<SyncthisConfig, 'onConflict' | 'notify'>> = rest;
-  if (onConflict !== 'auto-both') toWrite = { ...toWrite, onConflict };
-  if (notify !== undefined && notify !== true) toWrite = { ...toWrite, notify };
+  const { onConflict, ...rest } = config;
+  const toWrite = onConflict === 'auto-both' ? rest : config;
   await writeFile(configPath, `${JSON.stringify(toWrite, null, 2)}\n`, 'utf8');
 }
 
@@ -184,10 +162,6 @@ export function mergeWithFlags(config: SyncthisConfig, flags: CliFlags): Syncthi
 
   if (flags.onConflict !== undefined) {
     merged.onConflict = flags.onConflict;
-  }
-
-  if (flags.notify !== undefined) {
-    merged.notify = flags.notify;
   }
 
   return merged;

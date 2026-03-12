@@ -18,7 +18,6 @@ export interface StartFlags {
   logLevel: string;
   label?: string;
   enableAutostart?: boolean;
-  notify?: boolean;
 }
 
 const VALID_ON_CONFLICT = ['stop', 'auto-both', 'auto-newest', 'ask'] as const;
@@ -78,7 +77,6 @@ async function runForeground(flags: StartFlags): Promise<void> {
     cron: flags.cron,
     interval: flags.interval,
     onConflict: flags.onConflict as (typeof VALID_ON_CONFLICT)[number] | undefined,
-    notify: flags.notify,
   });
 
   // Resolve log level
@@ -88,7 +86,7 @@ async function runForeground(flags: StartFlags): Promise<void> {
     : 'info';
 
   const logDir = join(dirPath, '.syncthis', 'logs');
-  const logger = createLogger({ level: logLevel, logDir, notify: config.notify ?? true });
+  const logger = createLogger({ level: logLevel, logDir });
 
   const schedule = config.cron ?? `${config.interval}s`;
 

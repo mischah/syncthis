@@ -1,6 +1,7 @@
 import simpleGit from 'simple-git';
 import type { SyncthisConfig } from './config.js';
 import { resolveInteractive } from './conflict/interactive.js';
+import { notifyConflict } from './conflict/notify.js';
 import { getConflictFiles, isRebaseInProgress, resolveRebase } from './conflict/resolver.js';
 import type { Logger } from './logger.js';
 
@@ -69,8 +70,15 @@ export async function runSyncCycle(
       if (config.onConflict === 'auto-both' || config.onConflict === 'auto-newest') {
         const resolveResult = await resolveRebase(git, config.onConflict, dirPath, logger);
         if (resolveResult.status === 'resolved') {
-          logger.info(
-            `Conflicts auto-resolved (${config.onConflict}): ${resolveResult.resolvedFiles.join(', ')}`,
+          notifyConflict(
+            {
+              type: 'conflict-resolved',
+              strategy: config.onConflict,
+              files: resolveResult.resolvedFiles,
+              dirPath,
+              message: `Conflicts auto-resolved (${config.onConflict}): ${resolveResult.resolvedFiles.join(', ')}`,
+            },
+            logger,
           );
           try {
             await git.push('origin', config.branch);
@@ -81,8 +89,16 @@ export async function runSyncCycle(
             return { status: 'network-error', error: String(pushErr), filesChanged };
           }
         }
-        logger.error(
-          'Too many consecutive conflicts during rebase. Auto-resolution aborted. Resolve manually.',
+        notifyConflict(
+          {
+            type: 'conflict-limit-reached',
+            strategy: config.onConflict,
+            files: conflictedFiles,
+            dirPath,
+            message:
+              'Too many consecutive conflicts during rebase. Auto-resolution aborted. Resolve manually.',
+          },
+          logger,
         );
         return { status: 'conflict', error: 'Rebase limit reached', filesChanged };
       }
@@ -91,8 +107,15 @@ export async function runSyncCycle(
         const isInteractive = process.stdin.isTTY === true;
 
         if (!isInteractive) {
-          logger.error(
-            `Rebase conflict detected in: ${conflictedFiles.join(', ')}. No interactive terminal available. Run: syncthis resolve --path ${dirPath}`,
+          notifyConflict(
+            {
+              type: 'conflict-unresolved',
+              strategy: 'ask',
+              files: conflictedFiles,
+              dirPath,
+              message: `Rebase conflict detected in: ${conflictedFiles.join(', ')}. No interactive terminal available. Run: syncthis resolve --path ${dirPath}`,
+            },
+            logger,
           );
           return { status: 'conflict', error: 'Awaiting interactive resolution', filesChanged };
         }
@@ -117,7 +140,16 @@ export async function runSyncCycle(
           const result = await resolveInteractive({ git, files: currentFiles, logger, dirPath });
 
           if (result.status !== 'resolved') {
-            logger.error('Conflict resolution cancelled/aborted by user.');
+            notifyConflict(
+              {
+                type: 'conflict-unresolved',
+                strategy: 'ask',
+                files: conflictedFiles,
+                dirPath,
+                message: 'Conflict resolution cancelled/aborted by user.',
+              },
+              logger,
+            );
             return { status: 'conflict', error: 'Resolution cancelled/aborted', filesChanged };
           }
 
@@ -133,8 +165,15 @@ export async function runSyncCycle(
           currentFiles = moreConflicts;
         }
 
-        logger.info(
-          `Conflicts interactively resolved: ${allDecisions.map((d) => d.filePath).join(', ')}`,
+        notifyConflict(
+          {
+            type: 'conflict-resolved',
+            strategy: 'ask',
+            files: allDecisions.map((d) => d.filePath),
+            dirPath,
+            message: `Conflicts interactively resolved: ${allDecisions.map((d) => d.filePath).join(', ')}`,
+          },
+          logger,
         );
 
         try {
@@ -152,8 +191,15 @@ export async function runSyncCycle(
         }
       }
 
-      logger.error(
-        `Rebase conflict detected in: ${conflictedFiles.join(', ')}. Sync paused. Resolve conflicts manually, then run 'git rebase --continue' and restart syncthis.`,
+      notifyConflict(
+        {
+          type: 'conflict-unresolved',
+          strategy: 'stop',
+          files: conflictedFiles,
+          dirPath,
+          message: `Rebase conflict detected in: ${conflictedFiles.join(', ')}. Sync paused. Resolve conflicts manually, then run 'git rebase --continue' and restart syncthis.`,
+        },
+        logger,
       );
       return { status: 'conflict', error: String(err), filesChanged };
     }

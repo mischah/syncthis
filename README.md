@@ -180,7 +180,6 @@ syncthis start --enable-autostart
 | `--on-conflict` | string | Conflict strategy: `auto-both`, `auto-newest`, `stop`, `ask`. Default: `auto-both` |
 | `--log-level` | string | `debug`, `info`, `warn`, `error`. Default: `info` |
 | `--foreground` | boolean | Run in foreground instead of as a service (see below). |
-| `--no-notify` | boolean | Disable desktop notifications. Default: notifications enabled |
 
 `--cron` and `--interval` are mutually exclusive. CLI flags take priority over `.syncthis.json`.
 
@@ -531,8 +530,7 @@ syncthis/
 │       │   │   ├── hunk-resolver.ts     # Chunk-by-chunk per-hunk resolution
 │       │   │   ├── diff-renderer.ts     # Word-level diff rendering
 │       │   │   ├── conflict-filename.ts # Conflict copy filename generation
-│       │   └── notify/
-│       │       └── desktop.ts           # OS-native desktop notifications (macOS/Linux)
+│       │   │   └── notify.ts            # Conflict notification hooks
 │       │   ├── daemon/
 │       │   │   ├── platform.ts  # DaemonPlatform interface + factory
 │       │   │   ├── launchd.ts   # macOS launchd implementation
@@ -574,6 +572,7 @@ These features are intentionally out of scope for now but may be explored later:
 - **File watcher** — Trigger a sync immediately on file changes via `fs.watch`, instead of waiting for the next scheduled cycle.
 - **Log rotation** — Automatically rotate or clean up log files by size or age.
 - **Multi-directory** — A single process that syncs multiple directories at once.
+- **Desktop notifications** — Notification hooks are in place (log-only in v1). A transport layer (node-notifier, native OS APIs) will be added separately.
 - **Conflict cleanup** — A `syncthis cleanup` command to remove `.conflict-*` files from the directory (conflict copies are intentionally committed and synced to all devices so you can review them anywhere).
 - **Conflict history** — Persistent log of which conflicts occurred, when, and how they were resolved, stored in `.syncthis/conflict-log.json`.
 - **Dry-run mode** — `syncthis start --dry-run` to preview what would happen without making any changes.
