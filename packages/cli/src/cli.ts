@@ -5,6 +5,10 @@ import { handleResolve } from './commands/resolve.js';
 import { handleStart } from './commands/start.js';
 import { handleStatus } from './commands/status.js';
 
+function flagExplicitlyPassed(name: string): boolean {
+  return process.argv.some((a) => a === `--${name}` || a.startsWith(`--${name}=`));
+}
+
 const COMMAND_HELP: Record<string, string> = {
   init: `
   Usage
@@ -27,6 +31,7 @@ const COMMAND_HELP: Record<string, string> = {
   current terminal instead.
 
   Options
+    --all               Start all registered services
     --foreground        Run in foreground instead of as service
     --cron              Cron expression for sync schedule
     --interval          Sync interval in seconds
@@ -54,6 +59,7 @@ const COMMAND_HELP: Record<string, string> = {
   Stop the background sync service.
 
   Options
+    --all       Stop all registered services
     --label     Custom service name
     --path      Target directory (default: current directory)
 `,
@@ -64,6 +70,7 @@ const COMMAND_HELP: Record<string, string> = {
   Show sync and service status.
 
   Options
+    --all       Show overview of all registered services
     --label     Custom service name
     --path      Target directory (default: current directory)
 `,
@@ -94,6 +101,7 @@ const COMMAND_HELP: Record<string, string> = {
   Remove the background sync service.
 
   Options
+    --all       Remove all registered services
     --label     Custom service name
     --stale     Remove all stale services (target directory missing)
     --path      Target directory (default: current directory)
@@ -113,6 +121,7 @@ const cli = meow(
       --branch            Branch name
 
     start             Start background sync service
+      --all               Start all registered services
       --foreground        Run in foreground instead of as service
       --cron              Cron expression for sync schedule
       --interval          Sync interval in seconds
@@ -123,10 +132,11 @@ const cli = meow(
       --enable-autostart  Start service on login
 
       stop            Stop background sync service
+      --all               Stop all registered services
       --label             Custom service name
 
       status          Show sync and service status
-      --label             Custom service name
+      --all               Show overview of all registered services
 
       resolve         Interactively resolve rebase conflicts
 
@@ -138,6 +148,7 @@ const cli = meow(
       --lines, -n         Number of log lines (default: 50)
 
       uninstall       Remove background sync service
+      --all               Remove all registered services
       --label             Custom service name
       --stale             Remove all stale services
 
@@ -151,6 +162,9 @@ const cli = meow(
     $ syncthis start --path ~/vault
     $ syncthis start --interval 60
     $ syncthis start --foreground
+    $ syncthis start --all
+    $ syncthis stop --all
+    $ syncthis status --all
     $ syncthis resolve --path ~/vault
     $ syncthis logs --follow
     $ syncthis status
@@ -173,6 +187,7 @@ const cli = meow(
       foreground: { type: 'boolean', default: false },
       enableAutostart: { type: 'boolean', default: false },
       stale: { type: 'boolean', default: false },
+      all: { type: 'boolean', default: false },
       follow: { type: 'boolean', default: false, shortFlag: 'f' },
       lines: { type: 'number', default: 50, shortFlag: 'n' },
       help: { type: 'boolean', default: false, shortFlag: 'h' },
@@ -199,6 +214,31 @@ function showCommandHelp(cmd: string): boolean {
   return true;
 }
 
+// --all validation
+if (cli.flags.all) {
+  const allSupportedCommands = ['start', 'stop', 'uninstall', 'status'];
+  if (command === undefined || !allSupportedCommands.includes(command)) {
+    console.error(`Error: --all is only supported with: ${allSupportedCommands.join(', ')}`);
+    process.exit(1);
+  }
+  if (flagExplicitlyPassed('path')) {
+    console.error('Error: --all and --path are mutually exclusive.');
+    process.exit(1);
+  }
+  if (cli.flags.label !== undefined) {
+    console.error('Error: --all and --label are mutually exclusive.');
+    process.exit(1);
+  }
+  if (command === 'start' && cli.flags.foreground) {
+    console.error('Error: --all and --foreground are mutually exclusive.');
+    process.exit(1);
+  }
+  if (command === 'uninstall' && cli.flags.stale) {
+    console.error('Error: --all and --stale are mutually exclusive.');
+    process.exit(1);
+  }
+}
+
 switch (command) {
   case 'init':
     if (showCommandHelp('init')) break;
@@ -220,20 +260,29 @@ switch (command) {
       logLevel: cli.flags.logLevel,
       label: cli.flags.label,
       enableAutostart: cli.flags.enableAutostart,
+      all: cli.flags.all,
     });
     break;
   case 'stop':
     if (showCommandHelp('stop')) break;
-    await daemonStop({
-      path: cli.flags.path,
-      label: cli.flags.label,
-    });
+    try {
+      await daemonStop({
+        path: cli.flags.path,
+        label: cli.flags.label,
+        all: cli.flags.all,
+      });
+    } catch (err) {
+      console.error(`Error: ${(err as Error).message}`);
+      process.exit(1);
+    }
     break;
   case 'status':
     if (showCommandHelp('status')) break;
     await handleStatus({
       path: cli.flags.path,
       label: cli.flags.label,
+      all: cli.flags.all,
+      pathExplicit: flagExplicitlyPassed('path'),
     });
     break;
   case 'resolve':
@@ -254,11 +303,17 @@ switch (command) {
     break;
   case 'uninstall':
     if (showCommandHelp('uninstall')) break;
-    await daemonUninstall({
-      path: cli.flags.path,
-      label: cli.flags.label,
-      stale: cli.flags.stale,
-    });
+    try {
+      await daemonUninstall({
+        path: cli.flags.path,
+        label: cli.flags.label,
+        stale: cli.flags.stale,
+        all: cli.flags.all,
+      });
+    } catch (err) {
+      console.error(`Error: ${(err as Error).message}`);
+      process.exit(1);
+    }
     break;
   case undefined:
     cli.showHelp(0);
