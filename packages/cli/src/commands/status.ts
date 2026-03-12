@@ -5,6 +5,7 @@ import { type SyncthisConfig, loadConfig } from '../config.js';
 import { isRebaseInProgress } from '../conflict/resolver.js';
 import { getPlatform } from '../daemon/platform.js';
 import { generateServiceName } from '../daemon/service-name.js';
+import { type StatusData, printJson } from '../json-output.js';
 import { isLocked, readLockFile } from '../lock.js';
 import { printDaemonTable } from './daemon.js';
 
@@ -13,6 +14,7 @@ export interface StatusFlags {
   label?: string;
   all?: boolean;
   pathExplicit?: boolean;
+  json?: boolean;
 }
 
 async function fileExists(filePath: string): Promise<boolean> {
@@ -29,6 +31,10 @@ export async function handleStatus(flags: StatusFlags): Promise<void> {
     try {
       const platform = getPlatform();
       const daemons = await platform.listAll();
+      if (flags.json) {
+        printJson('status', { services: daemons });
+        return;
+      }
       if (daemons.length === 0) {
         console.log('No syncthis services registered.');
       } else {
@@ -45,6 +51,17 @@ export async function handleStatus(flags: StatusFlags): Promise<void> {
 
   const configPath = join(dirPath, '.syncthis.json');
   if (!(await fileExists(configPath))) {
+    if (flags.json) {
+      printJson('status', {
+        dirPath,
+        initialized: false,
+        config: null,
+        syncProcess: { running: false },
+        git: null,
+        service: null,
+      } satisfies StatusData);
+      return;
+    }
     if (!flags.pathExplicit) {
       console.log('No syncthis config found in current directory.');
       console.log("Run 'syncthis status --all' to see all services.");
@@ -55,69 +72,100 @@ export async function handleStatus(flags: StatusFlags): Promise<void> {
     return;
   }
 
-  // Load and display config
+  // Accumulate data
+  const data: StatusData = {
+    dirPath,
+    initialized: true,
+    config: null,
+    syncProcess: { running: false },
+    git: null,
+    service: null,
+  };
+
+  // Load config
   let config: SyncthisConfig | null = null;
   try {
     config = await loadConfig(dirPath);
-    console.log('Config:');
-    console.log(`  Remote:   ${config.remote}`);
-    console.log(`  Branch:   ${config.branch}`);
     const schedule = config.cron ?? `${config.interval}s`;
-    console.log(`  Schedule: ${schedule}`);
-    console.log(`  On conflict: ${config.onConflict}`);
     const logPath = join(dirPath, '.syncthis', 'logs', 'syncthis.log');
-    console.log(`  Log:      ${logPath}`);
+    data.config = {
+      remote: config.remote,
+      branch: config.branch,
+      schedule,
+      onConflict: config.onConflict,
+      logPath,
+    };
+    if (!flags.json) {
+      console.log('Config:');
+      console.log(`  Remote:   ${config.remote}`);
+      console.log(`  Branch:   ${config.branch}`);
+      console.log(`  Schedule: ${schedule}`);
+      console.log(`  On conflict: ${config.onConflict}`);
+      console.log(`  Log:      ${logPath}`);
+    }
   } catch (err) {
-    console.log(`Config: invalid – ${(err as Error).message}`);
+    if (!flags.json) console.log(`Config: invalid – ${(err as Error).message}`);
   }
 
   // Check running process via lock file
   const lockStatus = await isLocked(dirPath);
   if (lockStatus.locked) {
-    console.log(`\nSync process: running (PID: ${lockStatus.pid})`);
     const lockData = await readLockFile(dirPath);
     const runningSchedule =
       lockData?.schedule ??
       (config !== null ? (config.cron ?? `every ${config.interval}s`) : undefined);
-    if (runningSchedule !== undefined) {
-      console.log(`  Schedule: ${runningSchedule}`);
+    data.syncProcess = { running: true, pid: lockStatus.pid, schedule: runningSchedule };
+    if (!flags.json) {
+      console.log(`\nSync process: running (PID: ${lockStatus.pid})`);
+      if (runningSchedule !== undefined) console.log(`  Schedule: ${runningSchedule}`);
     }
   } else {
-    console.log('\nSync process: not running');
+    data.syncProcess = { running: false };
+    if (!flags.json) console.log('\nSync process: not running');
   }
 
   // Git status
-  console.log('\nGit:');
+  if (!flags.json) console.log('\nGit:');
   try {
     const git = simpleGit(dirPath);
 
     const branch = await git.revparse(['--abbrev-ref', 'HEAD']);
-    console.log(`  Branch:              ${branch.trim()}`);
-
     const remotes = await git.getRemotes(true);
     const origin = remotes.find((r) => r.name === 'origin');
-    if (origin !== undefined) {
-      console.log(`  Remote:              ${origin.refs.fetch}`);
-    }
-
     const statusOutput = await git.raw(['status', '--porcelain']);
     const uncommittedCount = statusOutput.split('\n').filter(Boolean).length;
-    console.log(`  Uncommitted changes: ${uncommittedCount}`);
-
     const rebaseInProgress = await isRebaseInProgress(git);
-    if (rebaseInProgress) {
-      console.log('  Sync:                conflict (rebase in progress)');
-      console.log(`  Run:                 syncthis resolve --path ${dirPath}`);
-    }
-
     const logResult = await git.log({ maxCount: 1 });
-    if (logResult.latest !== null) {
-      console.log(`  Last commit:         ${logResult.latest.date} – ${logResult.latest.message}`);
-    } else {
-      console.log('  Last commit:         (none)');
+
+    data.git = {
+      branch: branch.trim(),
+      remote: origin?.refs.fetch,
+      uncommittedChanges: uncommittedCount,
+      rebaseInProgress,
+      lastCommit:
+        logResult.latest !== null
+          ? { date: logResult.latest.date, message: logResult.latest.message }
+          : null,
+    };
+
+    if (!flags.json) {
+      console.log(`  Branch:              ${branch.trim()}`);
+      if (origin !== undefined) console.log(`  Remote:              ${origin.refs.fetch}`);
+      console.log(`  Uncommitted changes: ${uncommittedCount}`);
+      if (rebaseInProgress) {
+        console.log('  Sync:                conflict (rebase in progress)');
+        console.log(`  Run:                 syncthis resolve --path ${dirPath}`);
+      }
+      if (logResult.latest !== null) {
+        console.log(
+          `  Last commit:         ${logResult.latest.date} – ${logResult.latest.message}`,
+        );
+      } else {
+        console.log('  Last commit:         (none)');
+      }
     }
   } catch {
-    console.log('  Not a git repository or git error.');
+    if (!flags.json) console.log('  Not a git repository or git error.');
   }
 
   // Service status
@@ -128,22 +176,35 @@ export async function handleStatus(flags: StatusFlags): Promise<void> {
     const serviceStatus = await platform.status(serviceName);
 
     if (serviceStatus.state === 'not-installed') {
-      console.log('\nService: not installed');
+      data.service = { state: 'not-installed' };
+      if (!flags.json) console.log('\nService: not installed');
     } else {
-      const statusStr =
-        serviceStatus.state === 'running' && serviceStatus.pid !== undefined
-          ? `running (PID ${serviceStatus.pid})`
-          : serviceStatus.state;
       const autostart = await platform.isAutostartEnabled(serviceName);
       const serviceLabel = serviceName.replace('com.syncthis.', '');
-
-      console.log('\nService:');
-      console.log(`  Status:    ${statusStr}`);
-      console.log(`  Label:     ${serviceLabel}`);
-      console.log(`  Autostart: ${autostart ? 'on' : 'off'}`);
+      data.service = {
+        state: serviceStatus.state,
+        pid: serviceStatus.pid,
+        label: serviceLabel,
+        autostart,
+      };
+      if (!flags.json) {
+        const statusStr =
+          serviceStatus.state === 'running' && serviceStatus.pid !== undefined
+            ? `running (PID ${serviceStatus.pid})`
+            : serviceStatus.state;
+        console.log('\nService:');
+        console.log(`  Status:    ${statusStr}`);
+        console.log(`  Label:     ${serviceLabel}`);
+        console.log(`  Autostart: ${autostart ? 'on' : 'off'}`);
+      }
     }
   } catch {
     // Platform not supported or other error — skip service section
+  }
+
+  if (flags.json) {
+    printJson('status', data);
+    return;
   }
 
   if (!flags.pathExplicit) {

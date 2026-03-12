@@ -115,11 +115,12 @@ describe('daemonStart', () => {
     vi.useFakeTimers();
     const promise = daemonStart({ path: tempDir });
     await vi.runAllTimersAsync();
-    await promise;
+    const result = await promise;
 
     expect(platform.install).toHaveBeenCalledOnce();
     expect(platform.start).toHaveBeenCalledOnce();
-    expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Daemon started'));
+    expect(result.started).toBe(true);
+    expect(result.pid).toBe(1234);
   });
 
   it('reinstalls and starts when service is stopped (e.g. config changed)', async () => {
@@ -188,35 +189,33 @@ describe('daemonStart', () => {
     expect(platform.enableAutostart).toHaveBeenCalledOnce();
   });
 
-  it('prints Info message and skips install when already running', async () => {
+  it('returns alreadyRunning when service is already running', async () => {
     mockLoadConfig.mockResolvedValue({ ...baseConfig });
     const platform = makeMockPlatform({
       status: vi.fn().mockResolvedValue({ state: 'running', pid: 999 } as DaemonStatus),
     });
     mockGetPlatform.mockReturnValue(platform);
 
-    await daemonStart({ path: tempDir });
+    const result = await daemonStart({ path: tempDir });
 
     expect(platform.install).not.toHaveBeenCalled();
     expect(platform.start).not.toHaveBeenCalled();
-    expect(console.log).toHaveBeenCalledWith(
-      expect.stringContaining('Info: Daemon already running'),
-    );
+    expect(result.alreadyRunning).toBe(true);
+    expect(result.pid).toBe(999);
   });
 
-  it('prints Info message and skips install when a foreground process is running via lock file', async () => {
+  it('returns alreadyRunning when a foreground process is running via lock file', async () => {
     mockLoadConfig.mockResolvedValue({ ...baseConfig });
     mockIsLocked.mockResolvedValue({ locked: true, pid: 5555 });
     const platform = makeMockPlatform();
     mockGetPlatform.mockReturnValue(platform);
 
-    await daemonStart({ path: tempDir });
+    const result = await daemonStart({ path: tempDir });
 
     expect(platform.install).not.toHaveBeenCalled();
     expect(platform.start).not.toHaveBeenCalled();
-    expect(console.log).toHaveBeenCalledWith(
-      expect.stringContaining('Info: Daemon already running'),
-    );
+    expect(result.alreadyRunning).toBe(true);
+    expect(result.pid).toBe(5555);
   });
 
   it('writes daemonLabel to config after a successful start', async () => {
