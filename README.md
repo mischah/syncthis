@@ -31,6 +31,7 @@ When the same file is edited on two devices, syncthis detects the conflict and l
   - [syncthis list](#syncthis-list)
   - [syncthis logs](#syncthis-logs)
   - [syncthis uninstall](#syncthis-uninstall)
+  - [Machine-readable output (--json)](#machine-readable-output---json)
 - [How It Works](#how-it-works)
   - [Conflict Strategies](#conflict-strategies)
 - [Configuration](#configuration)
@@ -147,6 +148,7 @@ syncthis init --clone git@github.com:user/vault.git --path ./my-vault
 | `--clone` | string | Repository URL to clone (Mode B) |
 | `--path` | string | Target directory. Default: current directory |
 | `--branch` | string | Branch name. Default: `main` |
+| `--json` | boolean | Output machine-readable JSON. |
 
 `--remote` and `--clone` are mutually exclusive.
 
@@ -161,6 +163,7 @@ syncthis start
 syncthis start --path ~/vault
 syncthis start --label my-vault
 syncthis start --enable-autostart
+syncthis start --all
 ```
 
 - Creates an OS service (launchd on macOS, systemd on Linux).
@@ -181,6 +184,8 @@ syncthis start --enable-autostart
 | `--log-level` | string | `debug`, `info`, `warn`, `error`. Default: `info` |
 | `--foreground` | boolean | Run in foreground instead of as a service (see below). |
 | `--no-notify` | boolean | Disable desktop notifications. Default: notifications enabled |
+| `--all` | boolean | Start all registered services. Mutually exclusive with `--path`, `--label`, `--foreground`. |
+| `--json` | boolean | Output machine-readable JSON. Incompatible with `--foreground`. |
 
 `--cron` and `--interval` are mutually exclusive. CLI flags take priority over `.syncthis.json`.
 
@@ -206,7 +211,16 @@ Stops the background sync service. The service stays installed and can be restar
 ```bash
 syncthis stop
 syncthis stop --path ~/vault
+syncthis stop --all
 ```
+
+**Flags:**
+
+| Flag | Type | Description |
+|------|------|-------------|
+| `--path` | string | Directory to stop. Default: current directory |
+| `--all` | boolean | Stop all registered services. Mutually exclusive with `--path`. |
+| `--json` | boolean | Output machine-readable JSON. |
 
 ---
 
@@ -217,6 +231,7 @@ Shows the current sync status of a directory, including config, Git info, and se
 ```bash
 syncthis status
 syncthis status --path /home/user/my-vault
+syncthis status --all
 ```
 
 **Output includes:**
@@ -226,7 +241,16 @@ syncthis status --path /home/user/my-vault
 - Git info: branch, remote URL, number of uncommitted changes, last commit.
 - Service status: running/stopped/not installed, label, autostart.
 
-Works even without `.syncthis.json` (shows "Not initialized").
+Works even without `.syncthis.json` (shows "Not initialized"). With `--all`, shows a summary table of all registered services.
+
+**Flags:**
+
+| Flag | Type | Description |
+|------|------|-------------|
+| `--path` | string | Directory to inspect. Default: current directory |
+| `--all` | boolean | Show status of all registered services. Mutually exclusive with `--path`. |
+| `--json` | boolean | Output machine-readable JSON. |
+| `--stale` | boolean | Include services with missing directories. |
 
 ---
 
@@ -236,6 +260,7 @@ Lists all registered syncthis services on the system.
 
 ```bash
 syncthis list
+syncthis list --json
 ```
 
 **Example output:**
@@ -267,9 +292,18 @@ Stops and completely removes the service from the OS.
 ```bash
 syncthis uninstall
 syncthis uninstall --path ~/vault
+syncthis uninstall --all
 ```
 
 Your files, `.syncthis.json`, and logs are not deleted — only the OS service registration is removed.
+
+**Flags:**
+
+| Flag | Type | Description |
+|------|------|-------------|
+| `--path` | string | Directory to uninstall. Default: current directory |
+| `--all` | boolean | Uninstall all registered services. Mutually exclusive with `--path`. |
+| `--json` | boolean | Output machine-readable JSON. |
 
 ---
 
@@ -292,6 +326,33 @@ syncthis resolve --path ~/vault
 | Flag | Type | Description |
 |------|------|-------------|
 | `--path` | string | Directory to resolve. Default: current directory |
+
+### Machine-readable output (`--json`)
+
+Pass `--json` to any command (except `resolve` and `logs`) to receive structured JSON output instead of human-readable text. Useful for scripting or integrations.
+
+**Not supported on:** `resolve`, `logs`. Incompatible with `start --foreground`.
+
+**Success response:**
+
+```json
+{ "ok": true, "command": "status", "data": { ... } }
+```
+
+**Error response:**
+
+```json
+{ "ok": false, "command": "start", "error": { "message": "Not initialized", "code": "NOT_INITIALIZED" } }
+```
+
+The process exits with code `0` on success and `1` on error, regardless of `--json`.
+
+**Example:**
+
+```bash
+syncthis status --json | jq '.data.service.status'
+syncthis start --all --json | jq '.data[] | select(.outcome == "failed")'
+```
 
 ---
 
@@ -539,6 +600,7 @@ syncthis/
 │       │   │   ├── systemd.ts   # Linux systemd implementation
 │       │   │   ├── service-name.ts  # Service naming + slugify
 │       │   │   └── templates.ts # Plist / unit file generation
+│       │   ├── json-output.ts   # JSON response types and output helpers
 │       │   ├── config.ts        # Config loading & validation
 │       │   ├── sync.ts          # Git sync cycle
 │       │   ├── scheduler.ts     # Cron / interval scheduler
@@ -573,7 +635,6 @@ These features are intentionally out of scope for now but may be explored later:
 - **GUI** — A desktop app (`packages/gui`) that wraps the CLI as a subprocess (Electron / Tauri / web-based).
 - **File watcher** — Trigger a sync immediately on file changes via `fs.watch`, instead of waiting for the next scheduled cycle.
 - **Log rotation** — Automatically rotate or clean up log files by size or age.
-- **Multi-directory** — A single process that syncs multiple directories at once.
 - **Conflict cleanup** — A `syncthis cleanup` command to remove `.conflict-*` files from the directory (conflict copies are intentionally committed and synced to all devices so you can review them anywhere).
 - **Conflict history** — Persistent log of which conflicts occurred, when, and how they were resolved, stored in `.syncthis/conflict-log.json`.
 - **Dry-run mode** — `syncthis start --dry-run` to preview what would happen without making any changes.
@@ -584,7 +645,6 @@ These features are intentionally out of scope for now but may be explored later:
   - *Stage 2:* Self-contained binaries via `bun build --compile` or Node SEA, built by GitHub Actions for macOS (arm64 + x64), Linux (x64), and Windows (x64).
 - **Windows service support** — Service mode currently supports macOS (launchd) and Linux (systemd). Windows support could be added via Windows Service Manager or [NSSM](https://nssm.cc) (Non-Sucking Service Manager).
 - **Service updates** — When syncthis is updated, existing service definitions may still point to the old binary path. A `syncthis update` command or automatic detection in `syncthis status` could handle this.
-- **Batch management** — `syncthis start --all` / `syncthis stop --all` to manage all registered services at once.
 - **Health checks** — Periodic verification that the service is actually syncing (not just that the process is alive). Could detect stuck processes or persistent errors.
 - **Automated releases** — Conventional Commits + `commit-and-tag-version` (or `release-it`) for SemVer tagging, auto-generated `CHANGELOG.md`, and a GitHub Actions workflow that publishes to npm on tag push (`feat:` → minor, `fix:` → patch, `feat!:` → major).
 
