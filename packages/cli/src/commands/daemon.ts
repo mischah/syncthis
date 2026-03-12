@@ -24,6 +24,29 @@ export interface DaemonFlags {
   follow?: boolean;
   lines?: number;
   stale?: boolean;
+  all?: boolean;
+}
+
+export interface BatchResult {
+  label: string;
+  dirPath: string;
+  outcome: 'ok' | 'skipped' | 'failed';
+  message: string;
+}
+
+export function printBatchSummary(results: BatchResult[]): void {
+  for (const r of results) {
+    const icon = r.outcome === 'ok' ? '✓' : r.outcome === 'skipped' ? '-' : '✗';
+    console.log(`  ${icon} ${r.label} (${r.dirPath}) — ${r.message}`);
+  }
+  const ok = results.filter((r) => r.outcome === 'ok').length;
+  const skipped = results.filter((r) => r.outcome === 'skipped').length;
+  const failed = results.filter((r) => r.outcome === 'failed').length;
+  const parts: string[] = [];
+  if (ok > 0) parts.push(`${ok} succeeded`);
+  if (skipped > 0) parts.push(`${skipped} skipped`);
+  if (failed > 0) parts.push(`${failed} failed`);
+  console.log(`\n${results.length} service${results.length === 1 ? '' : 's'}: ${parts.join(', ')}`);
 }
 
 export async function resolveServiceName(flags: DaemonFlags): Promise<string> {
@@ -53,10 +76,12 @@ export function getPlatformOrExit(): DaemonPlatform {
 export async function daemonStart(flags: DaemonFlags): Promise<void> {
   const dirPath = flags.path;
 
-  const syncConfig = await loadConfig(dirPath).catch(() => {
-    console.error("Error: Not initialized. Run 'syncthis init' first.");
-    return process.exit(1);
-  });
+  let syncConfig: Awaited<ReturnType<typeof loadConfig>>;
+  try {
+    syncConfig = await loadConfig(dirPath);
+  } catch {
+    throw new Error("Not initialized. Run 'syncthis init' first.");
+  }
 
   const lockStatus = await isLocked(dirPath);
   if (lockStatus.locked) {
@@ -131,6 +156,41 @@ export async function daemonStart(flags: DaemonFlags): Promise<void> {
 }
 
 export async function daemonStop(flags: DaemonFlags): Promise<void> {
+  if (flags.all) {
+    const platform = getPlatformOrExit();
+    const daemons = await platform.listAll();
+    if (daemons.length === 0) {
+      console.log('No syncthis services registered.');
+      return;
+    }
+    const results: BatchResult[] = [];
+    for (const d of daemons) {
+      if (d.state === 'stopped') {
+        results.push({
+          label: d.label,
+          dirPath: d.dirPath,
+          outcome: 'skipped',
+          message: 'already stopped',
+        });
+        continue;
+      }
+      try {
+        await platform.stop(d.serviceName);
+        results.push({ label: d.label, dirPath: d.dirPath, outcome: 'ok', message: 'stopped' });
+      } catch (err) {
+        results.push({
+          label: d.label,
+          dirPath: d.dirPath,
+          outcome: 'failed',
+          message: (err as Error).message,
+        });
+      }
+    }
+    printBatchSummary(results);
+    if (results.some((r) => r.outcome === 'failed')) process.exit(1);
+    return;
+  }
+
   const dirPath = flags.path;
   const serviceName = await resolveServiceName(flags);
   const platform = getPlatformOrExit();
@@ -144,8 +204,7 @@ export async function daemonStop(flags: DaemonFlags): Promise<void> {
       console.log(`Foreground process stopped (PID: ${lockStatus.pid}). Directory: ${dirPath}`);
       return;
     }
-    console.error(`Error: No service found for ${dirPath}. Run 'syncthis start' first.`);
-    process.exit(1);
+    throw new Error(`No service found for ${dirPath}. Run 'syncthis start' first.`);
   }
 
   if (currentStatus.state === 'stopped') {
@@ -209,6 +268,38 @@ async function findStaleServices(platform: DaemonPlatform): Promise<DaemonInfo[]
 }
 
 export async function daemonUninstall(flags: DaemonFlags): Promise<void> {
+  if (flags.all) {
+    const platform = getPlatformOrExit();
+    const daemons = await platform.listAll();
+    if (daemons.length === 0) {
+      console.log('No syncthis services registered.');
+      return;
+    }
+    const results: BatchResult[] = [];
+    for (const d of daemons) {
+      try {
+        await platform.uninstall(d.serviceName);
+        try {
+          const config = await loadConfig(d.dirPath);
+          await writeConfig(d.dirPath, { ...config, daemonLabel: null });
+        } catch {
+          // Non-fatal
+        }
+        results.push({ label: d.label, dirPath: d.dirPath, outcome: 'ok', message: 'uninstalled' });
+      } catch (err) {
+        results.push({
+          label: d.label,
+          dirPath: d.dirPath,
+          outcome: 'failed',
+          message: (err as Error).message,
+        });
+      }
+    }
+    printBatchSummary(results);
+    if (results.some((r) => r.outcome === 'failed')) process.exit(1);
+    return;
+  }
+
   if (flags.stale) {
     const platform = getPlatformOrExit();
     const stale = await findStaleServices(platform);

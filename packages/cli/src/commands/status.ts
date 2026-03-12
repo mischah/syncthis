@@ -6,10 +6,13 @@ import { isRebaseInProgress } from '../conflict/resolver.js';
 import { getPlatform } from '../daemon/platform.js';
 import { generateServiceName } from '../daemon/service-name.js';
 import { isLocked, readLockFile } from '../lock.js';
+import { printDaemonTable } from './daemon.js';
 
 export interface StatusFlags {
   path: string;
   label?: string;
+  all?: boolean;
+  pathExplicit?: boolean;
 }
 
 async function fileExists(filePath: string): Promise<boolean> {
@@ -22,12 +25,33 @@ async function fileExists(filePath: string): Promise<boolean> {
 }
 
 export async function handleStatus(flags: StatusFlags): Promise<void> {
+  if (flags.all) {
+    try {
+      const platform = getPlatform();
+      const daemons = await platform.listAll();
+      if (daemons.length === 0) {
+        console.log('No syncthis services registered.');
+      } else {
+        printDaemonTable(daemons);
+      }
+    } catch (err) {
+      console.error(`Error: ${(err as Error).message}`);
+      process.exit(1);
+    }
+    return;
+  }
+
   const dirPath = flags.path;
 
   const configPath = join(dirPath, '.syncthis.json');
   if (!(await fileExists(configPath))) {
-    console.log('Not initialized (no .syncthis.json found).');
-    console.log('Run: syncthis init --remote <url>');
+    if (!flags.pathExplicit) {
+      console.log('No syncthis config found in current directory.');
+      console.log("Run 'syncthis status --all' to see all services.");
+    } else {
+      console.log('Not initialized (no .syncthis.json found).');
+      console.log('Run: syncthis init --remote <url>');
+    }
     return;
   }
 
@@ -120,5 +144,9 @@ export async function handleStatus(flags: StatusFlags): Promise<void> {
     }
   } catch {
     // Platform not supported or other error — skip service section
+  }
+
+  if (!flags.pathExplicit) {
+    console.log("\nTip: Run 'syncthis status --all' to see all services.");
   }
 }
