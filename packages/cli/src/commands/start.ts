@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { type SyncthisConfig, loadConfig, mergeWithFlags } from '../config.js';
+import { type BatchData, printJson, printJsonError } from '../json-output.js';
 import { acquireLock, releaseLock } from '../lock.js';
 import { type LogLevel, createLogger } from '../logger.js';
 import { type SchedulerHandle, startScheduler } from '../scheduler.js';
@@ -21,12 +22,19 @@ export interface StartFlags {
   enableAutostart?: boolean;
   notify?: boolean;
   all?: boolean;
+  json?: boolean;
 }
 
 const VALID_ON_CONFLICT = ['stop', 'auto-both', 'auto-newest', 'ask'] as const;
 
 export async function handleStart(flags: StartFlags): Promise<void> {
   if (flags.onConflict !== undefined && !VALID_ON_CONFLICT.includes(flags.onConflict as never)) {
+    if (flags.json)
+      printJsonError(
+        'start',
+        `Invalid --on-conflict value: '${flags.onConflict}'. Allowed: stop, auto-both, auto-newest, ask`,
+        'INVALID_FLAGS',
+      );
     console.error(
       `Error: Invalid --on-conflict value: '${flags.onConflict}'. Allowed: stop, auto-both, auto-newest, ask`,
     );
@@ -38,13 +46,15 @@ export async function handleStart(flags: StartFlags): Promise<void> {
     return;
   }
 
-  const { daemonStart, getPlatformOrExit, printBatchSummary } = await import('./daemon.js');
+  const { daemonStart, getPlatformOrExit, printBatchSummary, printDaemonStartResult } =
+    await import('./daemon.js');
 
   if (flags.all) {
     const platform = getPlatformOrExit();
     const daemons = await platform.listAll();
     if (daemons.length === 0) {
-      console.log('No syncthis services registered.');
+      if (flags.json) printJson('start', { results: [] } satisfies BatchData);
+      else console.log('No syncthis services registered.');
       return;
     }
     const results: BatchResult[] = [];
@@ -70,13 +80,18 @@ export async function handleStart(flags: StartFlags): Promise<void> {
         });
       }
     }
+    if (flags.json) {
+      printJson('start', { results } satisfies BatchData);
+      if (results.some((r) => r.outcome === 'failed')) process.exit(1);
+      return;
+    }
     printBatchSummary(results);
     if (results.some((r) => r.outcome === 'failed')) process.exit(1);
     return;
   }
 
   try {
-    await daemonStart({
+    const result = await daemonStart({
       path: flags.path,
       label: flags.label,
       enableAutostart: flags.enableAutostart,
@@ -85,7 +100,13 @@ export async function handleStart(flags: StartFlags): Promise<void> {
       onConflict: flags.onConflict,
       logLevel: flags.logLevel,
     });
+    if (flags.json) {
+      printJson('start', result);
+    } else {
+      printDaemonStartResult(result);
+    }
   } catch (err) {
+    if (flags.json) printJsonError('start', (err as Error).message);
     console.error(`Error: ${(err as Error).message}`);
     process.exit(1);
   }

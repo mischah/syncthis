@@ -11,6 +11,13 @@ import {
   getSyncthisBinary,
 } from '../daemon/platform.js';
 import { generateServiceName } from '../daemon/service-name.js';
+import {
+  type BatchData,
+  type DaemonStartData,
+  type DaemonStopData,
+  type DaemonUninstallData,
+  printJson,
+} from '../json-output.js';
 import { isLocked, releaseLock } from '../lock.js';
 
 export interface DaemonFlags {
@@ -25,6 +32,7 @@ export interface DaemonFlags {
   lines?: number;
   stale?: boolean;
   all?: boolean;
+  json?: boolean;
 }
 
 export interface BatchResult {
@@ -65,15 +73,10 @@ export async function resolveServiceName(flags: DaemonFlags): Promise<string> {
 }
 
 export function getPlatformOrExit(): DaemonPlatform {
-  try {
-    return getPlatform();
-  } catch (err) {
-    console.error(`Error: ${(err as Error).message}`);
-    return process.exit(1);
-  }
+  return getPlatform();
 }
 
-export async function daemonStart(flags: DaemonFlags): Promise<void> {
+export async function daemonStart(flags: DaemonFlags): Promise<DaemonStartData> {
   const dirPath = flags.path;
 
   let syncConfig: Awaited<ReturnType<typeof loadConfig>>;
@@ -85,8 +88,7 @@ export async function daemonStart(flags: DaemonFlags): Promise<void> {
 
   const lockStatus = await isLocked(dirPath);
   if (lockStatus.locked) {
-    console.log(`Info: Daemon already running for ${dirPath} (PID: ${lockStatus.pid}).`);
-    return;
+    return { dirPath, started: false, pid: lockStatus.pid, alreadyRunning: true };
   }
 
   const serviceName = generateServiceName(
@@ -97,9 +99,7 @@ export async function daemonStart(flags: DaemonFlags): Promise<void> {
   const currentStatus = await platform.status(serviceName);
 
   if (currentStatus.state === 'running') {
-    const pidInfo = currentStatus.pid !== undefined ? ` (PID: ${currentStatus.pid})` : '';
-    console.log(`Info: Daemon already running for ${dirPath}${pidInfo}.`);
-    return;
+    return { dirPath, started: false, pid: currentStatus.pid, alreadyRunning: true };
   }
 
   const mergedConfig = mergeWithFlags(syncConfig, {
@@ -140,13 +140,30 @@ export async function daemonStart(flags: DaemonFlags): Promise<void> {
   const finalStatus = await platform.status(serviceName);
 
   if (finalStatus.state === 'running') {
-    const pidInfo = finalStatus.pid !== undefined ? ` (PID: ${finalStatus.pid})` : '';
-    console.log(`Daemon started${pidInfo}. Syncing: ${dirPath}`);
-  } else {
-    const logPath = join(dirPath, '.syncthis', 'logs', 'syncthis.log');
+    return { dirPath, started: true, pid: finalStatus.pid };
+  }
+
+  const logPath = join(dirPath, '.syncthis', 'logs', 'syncthis.log');
+  let warning = `Daemon may not have started correctly. Check logs: ${logPath}`;
+  if (process.platform === 'darwin') {
     const stderrLog = join(dirPath, '.syncthis', 'logs', 'launchd-stderr.log');
+    warning += ` | System log: ${stderrLog} | Hint: macOS may have blocked the background activity. Approve in: System Settings → General → Login Items → Allow in the Background`;
+  }
+  return { dirPath, started: false, warning };
+}
+
+export function printDaemonStartResult(result: DaemonStartData): void {
+  if (result.alreadyRunning) {
+    const pidInfo = result.pid !== undefined ? ` (PID: ${result.pid})` : '';
+    console.log(`Info: Daemon already running for ${result.dirPath}${pidInfo}.`);
+  } else if (result.started) {
+    const pidInfo = result.pid !== undefined ? ` (PID: ${result.pid})` : '';
+    console.log(`Daemon started${pidInfo}. Syncing: ${result.dirPath}`);
+  } else if (result.warning !== undefined) {
+    const logPath = join(result.dirPath, '.syncthis', 'logs', 'syncthis.log');
     let msg = `Warning: Daemon may not have started correctly.\n  Check logs: ${logPath}`;
     if (process.platform === 'darwin') {
+      const stderrLog = join(result.dirPath, '.syncthis', 'logs', 'launchd-stderr.log');
       msg += `\n  System log: ${stderrLog}`;
       msg += '\n\n  Hint: macOS may have blocked the background activity.';
       msg += '\n  Approve it in: System Settings → General → Login Items → Allow in the Background';
@@ -160,7 +177,8 @@ export async function daemonStop(flags: DaemonFlags): Promise<void> {
     const platform = getPlatformOrExit();
     const daemons = await platform.listAll();
     if (daemons.length === 0) {
-      console.log('No syncthis services registered.');
+      if (flags.json) printJson('stop', { results: [] } satisfies BatchData);
+      else console.log('No syncthis services registered.');
       return;
     }
     const results: BatchResult[] = [];
@@ -186,6 +204,11 @@ export async function daemonStop(flags: DaemonFlags): Promise<void> {
         });
       }
     }
+    if (flags.json) {
+      printJson('stop', { results } satisfies BatchData);
+      if (results.some((r) => r.outcome === 'failed')) process.exit(1);
+      return;
+    }
     printBatchSummary(results);
     if (results.some((r) => r.outcome === 'failed')) process.exit(1);
     return;
@@ -201,6 +224,15 @@ export async function daemonStop(flags: DaemonFlags): Promise<void> {
     if (lockStatus.locked && lockStatus.pid !== undefined) {
       process.kill(lockStatus.pid, 'SIGTERM');
       await releaseLock(dirPath);
+      if (flags.json) {
+        printJson('stop', {
+          dirPath,
+          stopped: true,
+          pid: lockStatus.pid,
+          foregroundStopped: true,
+        } satisfies DaemonStopData);
+        return;
+      }
       console.log(`Foreground process stopped (PID: ${lockStatus.pid}). Directory: ${dirPath}`);
       return;
     }
@@ -208,17 +240,30 @@ export async function daemonStop(flags: DaemonFlags): Promise<void> {
   }
 
   if (currentStatus.state === 'stopped') {
+    if (flags.json) {
+      printJson('stop', { dirPath, stopped: false, alreadyStopped: true } satisfies DaemonStopData);
+      return;
+    }
     console.log(`Info: Daemon is already stopped for ${dirPath}.`);
     return;
   }
 
   await platform.stop(serviceName);
+  if (flags.json) {
+    printJson('stop', { dirPath, stopped: true } satisfies DaemonStopData);
+    return;
+  }
   console.log(`Daemon stopped. Directory: ${dirPath}`);
 }
 
-export async function handleList(flags: { stale?: boolean } = {}): Promise<void> {
+export async function handleList(flags: { stale?: boolean; json?: boolean } = {}): Promise<void> {
   const platform = getPlatformOrExit();
   const daemons = flags.stale ? await findStaleServices(platform) : await platform.listAll();
+
+  if (flags.json) {
+    printJson('list', { services: daemons });
+    return;
+  }
 
   if (daemons.length === 0) {
     console.log(flags.stale ? 'No stale services found.' : 'No syncthis services registered.');
@@ -272,7 +317,8 @@ export async function daemonUninstall(flags: DaemonFlags): Promise<void> {
     const platform = getPlatformOrExit();
     const daemons = await platform.listAll();
     if (daemons.length === 0) {
-      console.log('No syncthis services registered.');
+      if (flags.json) printJson('uninstall', { results: [] } satisfies BatchData);
+      else console.log('No syncthis services registered.');
       return;
     }
     const results: BatchResult[] = [];
@@ -295,6 +341,11 @@ export async function daemonUninstall(flags: DaemonFlags): Promise<void> {
         });
       }
     }
+    if (flags.json) {
+      printJson('uninstall', { results } satisfies BatchData);
+      if (results.some((r) => r.outcome === 'failed')) process.exit(1);
+      return;
+    }
     printBatchSummary(results);
     if (results.some((r) => r.outcome === 'failed')) process.exit(1);
     return;
@@ -304,12 +355,36 @@ export async function daemonUninstall(flags: DaemonFlags): Promise<void> {
     const platform = getPlatformOrExit();
     const stale = await findStaleServices(platform);
     if (stale.length === 0) {
-      console.log('No stale services found.');
+      if (flags.json) printJson('uninstall', { results: [] } satisfies BatchData);
+      else console.log('No stale services found.');
       return;
     }
+    const results: BatchResult[] = [];
     for (const service of stale) {
-      await platform.uninstall(service.serviceName);
-      console.log(`Removed stale service: ${service.label} (${service.dirPath || 'unknown path'})`);
+      try {
+        await platform.uninstall(service.serviceName);
+        results.push({
+          label: service.label,
+          dirPath: service.dirPath,
+          outcome: 'ok',
+          message: 'uninstalled',
+        });
+        if (!flags.json)
+          console.log(
+            `Removed stale service: ${service.label} (${service.dirPath || 'unknown path'})`,
+          );
+      } catch (err) {
+        results.push({
+          label: service.label,
+          dirPath: service.dirPath,
+          outcome: 'failed',
+          message: (err as Error).message,
+        });
+      }
+    }
+    if (flags.json) {
+      printJson('uninstall', { results } satisfies BatchData);
+      if (results.some((r) => r.outcome === 'failed')) process.exit(1);
     }
     return;
   }
@@ -320,6 +395,14 @@ export async function daemonUninstall(flags: DaemonFlags): Promise<void> {
   const currentStatus = await platform.status(serviceName);
 
   if (currentStatus.state === 'not-installed') {
+    if (flags.json) {
+      printJson('uninstall', {
+        dirPath,
+        uninstalled: false,
+        notInstalled: true,
+      } satisfies DaemonUninstallData);
+      return;
+    }
     console.log(`Info: No service installed for ${dirPath}. Nothing to uninstall.`);
     return;
   }
@@ -333,6 +416,10 @@ export async function daemonUninstall(flags: DaemonFlags): Promise<void> {
     // Non-fatal
   }
 
+  if (flags.json) {
+    printJson('uninstall', { dirPath, uninstalled: true } satisfies DaemonUninstallData);
+    return;
+  }
   console.log(`Service uninstalled. Directory: ${dirPath}`);
 }
 

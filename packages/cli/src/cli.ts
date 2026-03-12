@@ -4,6 +4,7 @@ import { handleInit } from './commands/init.js';
 import { handleResolve } from './commands/resolve.js';
 import { handleStart } from './commands/start.js';
 import { handleStatus } from './commands/status.js';
+import { printJsonError } from './json-output.js';
 
 function flagExplicitlyPassed(name: string): boolean {
   return process.argv.some((a) => a === `--${name}` || a.startsWith(`--${name}=`));
@@ -157,6 +158,7 @@ const cli = meow(
 
   Global options
     --path              Target directory (default: current directory)
+    --json              Output machine-readable JSON
     --help, -h          Show help text
     --version, -v       Show version number
 
@@ -194,6 +196,7 @@ const cli = meow(
       all: { type: 'boolean', default: false },
       follow: { type: 'boolean', default: false, shortFlag: 'f' },
       lines: { type: 'number', default: 50, shortFlag: 'n' },
+      json: { type: 'boolean', default: false },
       help: { type: 'boolean', default: false, shortFlag: 'h' },
       version: { type: 'boolean', default: false, shortFlag: 'v' },
     },
@@ -218,112 +221,154 @@ function showCommandHelp(cmd: string): boolean {
   return true;
 }
 
+// --json validation
+if (cli.flags.json) {
+  const jsonUnsupported = ['resolve', 'logs'];
+  if (command !== undefined && jsonUnsupported.includes(command)) {
+    printJsonError(command, `--json is not supported with '${command}'`, 'UNSUPPORTED');
+  }
+  if (command === 'start' && cli.flags.foreground) {
+    printJsonError('start', '--json is not supported with --foreground', 'UNSUPPORTED');
+  }
+}
+
 // --all validation
 if (cli.flags.all) {
   const allSupportedCommands = ['start', 'stop', 'uninstall', 'status'];
   if (command === undefined || !allSupportedCommands.includes(command)) {
+    if (cli.flags.json) {
+      printJsonError(
+        command ?? 'unknown',
+        `--all is only supported with: ${allSupportedCommands.join(', ')}`,
+        'INVALID_FLAGS',
+      );
+    }
     console.error(`Error: --all is only supported with: ${allSupportedCommands.join(', ')}`);
     process.exit(1);
   }
   if (flagExplicitlyPassed('path')) {
+    if (cli.flags.json)
+      printJsonError(command, '--all and --path are mutually exclusive.', 'INVALID_FLAGS');
     console.error('Error: --all and --path are mutually exclusive.');
     process.exit(1);
   }
   if (cli.flags.label !== undefined) {
+    if (cli.flags.json)
+      printJsonError(command, '--all and --label are mutually exclusive.', 'INVALID_FLAGS');
     console.error('Error: --all and --label are mutually exclusive.');
     process.exit(1);
   }
   if (command === 'start' && cli.flags.foreground) {
+    if (cli.flags.json)
+      printJsonError(command, '--all and --foreground are mutually exclusive.', 'INVALID_FLAGS');
     console.error('Error: --all and --foreground are mutually exclusive.');
     process.exit(1);
   }
   if (command === 'uninstall' && cli.flags.stale) {
+    if (cli.flags.json)
+      printJsonError(command, '--all and --stale are mutually exclusive.', 'INVALID_FLAGS');
     console.error('Error: --all and --stale are mutually exclusive.');
     process.exit(1);
   }
 }
 
-switch (command) {
-  case 'init':
-    if (showCommandHelp('init')) break;
-    await handleInit({
-      path: cli.flags.path,
-      remote: cli.flags.remote,
-      clone: cli.flags.clone,
-      branch: cli.flags.branch,
-    });
-    break;
-  case 'start':
-    if (showCommandHelp('start')) break;
-    await handleStart({
-      path: cli.flags.path,
-      foreground: cli.flags.foreground,
-      cron: cli.flags.cron,
-      interval: cli.flags.interval,
-      onConflict: cli.flags.onConflict,
-      logLevel: cli.flags.logLevel,
-      label: cli.flags.label,
-      enableAutostart: cli.flags.enableAutostart,
-      notify: cli.flags.notify,
-      all: cli.flags.all,
-    });
-    break;
-  case 'stop':
-    if (showCommandHelp('stop')) break;
-    try {
-      await daemonStop({
+try {
+  switch (command) {
+    case 'init':
+      if (showCommandHelp('init')) break;
+      await handleInit({
+        path: cli.flags.path,
+        remote: cli.flags.remote,
+        clone: cli.flags.clone,
+        branch: cli.flags.branch,
+        json: cli.flags.json,
+      });
+      break;
+    case 'start':
+      if (showCommandHelp('start')) break;
+      await handleStart({
+        path: cli.flags.path,
+        foreground: cli.flags.foreground,
+        cron: cli.flags.cron,
+        interval: cli.flags.interval,
+        onConflict: cli.flags.onConflict,
+        logLevel: cli.flags.logLevel,
+        label: cli.flags.label,
+        enableAutostart: cli.flags.enableAutostart,
+        notify: cli.flags.notify,
+        all: cli.flags.all,
+        json: cli.flags.json,
+      });
+      break;
+    case 'stop':
+      if (showCommandHelp('stop')) break;
+      try {
+        await daemonStop({
+          path: cli.flags.path,
+          label: cli.flags.label,
+          all: cli.flags.all,
+          json: cli.flags.json,
+        });
+      } catch (err) {
+        if (cli.flags.json) printJsonError('stop', (err as Error).message);
+        console.error(`Error: ${(err as Error).message}`);
+        process.exit(1);
+      }
+      break;
+    case 'status':
+      if (showCommandHelp('status')) break;
+      await handleStatus({
         path: cli.flags.path,
         label: cli.flags.label,
         all: cli.flags.all,
+        pathExplicit: flagExplicitlyPassed('path'),
+        json: cli.flags.json,
       });
-    } catch (err) {
-      console.error(`Error: ${(err as Error).message}`);
-      process.exit(1);
-    }
-    break;
-  case 'status':
-    if (showCommandHelp('status')) break;
-    await handleStatus({
-      path: cli.flags.path,
-      label: cli.flags.label,
-      all: cli.flags.all,
-      pathExplicit: flagExplicitlyPassed('path'),
-    });
-    break;
-  case 'resolve':
-    if (showCommandHelp('resolve')) break;
-    await handleResolve({ path: cli.flags.path });
-    break;
-  case 'list':
-    if (showCommandHelp('list')) break;
-    await handleList({ stale: cli.flags.stale });
-    break;
-  case 'logs':
-    if (showCommandHelp('logs')) break;
-    await daemonLogs({
-      path: cli.flags.path,
-      follow: cli.flags.follow,
-      lines: cli.flags.lines,
-    });
-    break;
-  case 'uninstall':
-    if (showCommandHelp('uninstall')) break;
-    try {
-      await daemonUninstall({
+      break;
+    case 'resolve':
+      if (showCommandHelp('resolve')) break;
+      await handleResolve({ path: cli.flags.path });
+      break;
+    case 'list':
+      if (showCommandHelp('list')) break;
+      await handleList({ stale: cli.flags.stale, json: cli.flags.json });
+      break;
+    case 'logs':
+      if (showCommandHelp('logs')) break;
+      await daemonLogs({
         path: cli.flags.path,
-        label: cli.flags.label,
-        stale: cli.flags.stale,
-        all: cli.flags.all,
+        follow: cli.flags.follow,
+        lines: cli.flags.lines,
       });
-    } catch (err) {
-      console.error(`Error: ${(err as Error).message}`);
-      process.exit(1);
-    }
-    break;
-  case undefined:
-    cli.showHelp(0);
-    break;
-  default:
-    console.error(`Error: Unknown command '${command}'. Run 'syncthis --help' for usage.`);
-    cli.showHelp(2);
+      break;
+    case 'uninstall':
+      if (showCommandHelp('uninstall')) break;
+      try {
+        await daemonUninstall({
+          path: cli.flags.path,
+          label: cli.flags.label,
+          stale: cli.flags.stale,
+          all: cli.flags.all,
+          json: cli.flags.json,
+        });
+      } catch (err) {
+        if (cli.flags.json) printJsonError('uninstall', (err as Error).message);
+        console.error(`Error: ${(err as Error).message}`);
+        process.exit(1);
+      }
+      break;
+    case undefined:
+      cli.showHelp(0);
+      break;
+    default:
+      if (cli.flags.json)
+        printJsonError(command, `Unknown command '${command}'`, 'UNKNOWN_COMMAND');
+      console.error(`Error: Unknown command '${command}'. Run 'syncthis --help' for usage.`);
+      cli.showHelp(2);
+  }
+} catch (err) {
+  if (cli.flags.json) {
+    printJsonError(command ?? 'unknown', (err as Error).message ?? String(err));
+  }
+  throw err;
 }

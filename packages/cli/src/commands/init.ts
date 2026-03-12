@@ -2,6 +2,7 @@ import { access, readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import simpleGit from 'simple-git';
 import { createDefaultConfig, writeConfig } from '../config.js';
+import { type InitData, printJson, printJsonError } from '../json-output.js';
 
 const GITIGNORE_CONTENT = `# syncthis
 .syncthis.lock
@@ -23,6 +24,7 @@ export interface InitFlags {
   remote?: string;
   clone?: string;
   branch?: string;
+  json?: boolean;
 }
 
 async function fileExists(filePath: string): Promise<boolean> {
@@ -40,11 +42,15 @@ export async function handleInit(flags: InitFlags): Promise<void> {
   const dirPath = flags.path;
 
   if (remote !== undefined && clone !== undefined) {
+    if (flags.json)
+      printJsonError('init', '--remote and --clone are mutually exclusive.', 'INVALID_FLAGS');
     console.error('Error: --remote and --clone are mutually exclusive.');
     process.exit(1);
   }
 
   if (remote === undefined && clone === undefined) {
+    if (flags.json)
+      printJsonError('init', 'One of --remote or --clone is required.', 'INVALID_FLAGS');
     console.error('Error: One of --remote or --clone is required.');
     console.error('  syncthis init --remote git@github.com:user/vault.git');
     console.error('  syncthis init --clone git@github.com:user/vault.git');
@@ -52,15 +58,22 @@ export async function handleInit(flags: InitFlags): Promise<void> {
   }
 
   if (remote !== undefined) {
-    await handleInitRemote(dirPath, remote, branch);
+    await handleInitRemote(dirPath, remote, branch, flags.json);
   } else if (clone !== undefined) {
-    await handleInitClone(dirPath, clone, branch);
+    await handleInitClone(dirPath, clone, branch, flags.json);
   }
 }
 
-async function handleInitRemote(dirPath: string, remote: string, branch: string): Promise<void> {
+async function handleInitRemote(
+  dirPath: string,
+  remote: string,
+  branch: string,
+  json?: boolean,
+): Promise<void> {
   const configPath = join(dirPath, '.syncthis.json');
   if (await fileExists(configPath)) {
+    if (json)
+      printJsonError('init', 'Already initialized (.syncthis.json exists).', 'ALREADY_INITIALIZED');
     console.error('Error: Already initialized (.syncthis.json exists).');
     process.exit(1);
   }
@@ -81,6 +94,12 @@ async function handleInitRemote(dirPath: string, remote: string, branch: string)
     const origin = remotes.find((r) => r.name === 'origin');
     if (origin !== undefined) {
       if (origin.refs.fetch !== remote) {
+        if (json)
+          printJsonError(
+            'init',
+            `Remote 'origin' already exists with a different URL: ${origin.refs.fetch}`,
+            'REMOTE_CONFLICT',
+          );
         console.error(
           `Error: Remote 'origin' already exists with a different URL: ${origin.refs.fetch}`,
         );
@@ -119,6 +138,11 @@ async function handleInitRemote(dirPath: string, remote: string, branch: string)
     await git.push(['--set-upstream', 'origin', branch]);
   }
 
+  if (json) {
+    const data: InitData = { dirPath, remote, branch, cloned: false };
+    printJson('init', data);
+    return;
+  }
   console.log(`Initialized syncthis in ${dirPath}`);
   console.log(`  Remote: ${remote}`);
   console.log(`  Branch: ${branch}`);
@@ -126,10 +150,17 @@ async function handleInitRemote(dirPath: string, remote: string, branch: string)
   console.log('  syncthis start');
 }
 
-async function handleInitClone(dirPath: string, cloneUrl: string, branch: string): Promise<void> {
+async function handleInitClone(
+  dirPath: string,
+  cloneUrl: string,
+  branch: string,
+  json?: boolean,
+): Promise<void> {
   try {
     const entries = await readdir(dirPath);
     if (entries.length > 0) {
+      if (json)
+        printJsonError('init', `Directory exists and is not empty: ${dirPath}`, 'DIR_NOT_EMPTY');
       console.error(`Error: Directory exists and is not empty: ${dirPath}`);
       process.exit(1);
     }
@@ -145,6 +176,11 @@ async function handleInitClone(dirPath: string, cloneUrl: string, branch: string
 
   await writeConfig(dirPath, createDefaultConfig(cloneUrl, branch));
 
+  if (json) {
+    const data: InitData = { dirPath, remote: cloneUrl, branch, cloned: true };
+    printJson('init', data);
+    return;
+  }
   console.log(`Cloned repository to ${dirPath}`);
   console.log(`  Remote: ${cloneUrl}`);
   console.log(`  Branch: ${branch}`);
