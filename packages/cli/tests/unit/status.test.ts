@@ -48,6 +48,11 @@ vi.mock('../../src/conflict/resolver.js', () => ({
   isRebaseInProgress: mockIsRebaseInProgress,
 }));
 
+const mockReadHealthFile = vi.hoisted(() => vi.fn().mockResolvedValue(null));
+vi.mock('../../src/health.js', () => ({
+  readHealthFile: mockReadHealthFile,
+}));
+
 import { handleStatus } from '../../src/commands/status.js';
 
 describe('handleStatus', () => {
