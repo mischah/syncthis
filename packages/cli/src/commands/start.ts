@@ -70,7 +70,7 @@ export async function handleStart(flags: StartFlags): Promise<void> {
         continue;
       }
       try {
-        await daemonStart({ path: d.dirPath });
+        await daemonStart({ path: d.dirPath, label: d.label });
         results.push({ label: d.label, dirPath: d.dirPath, outcome: 'ok', message: 'started' });
       } catch (err) {
         results.push({

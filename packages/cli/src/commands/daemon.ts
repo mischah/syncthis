@@ -91,11 +91,20 @@ export async function daemonStart(flags: DaemonFlags): Promise<DaemonStartData> 
     return { dirPath, started: false, pid: lockStatus.pid, alreadyRunning: true };
   }
 
-  const serviceName = generateServiceName(
-    dirPath,
-    flags.label ?? syncConfig.daemonLabel ?? undefined,
-  );
   const platform = getPlatformOrExit();
+
+  // Resolve label: explicit flag > config > existing registered service for this dir > auto-generate
+  let resolvedLabel = flags.label ?? syncConfig.daemonLabel ?? undefined;
+  if (resolvedLabel === undefined) {
+    try {
+      const daemons = await platform.listAll();
+      const existing = daemons.find((d) => d.dirPath === dirPath);
+      if (existing) resolvedLabel = existing.label;
+    } catch {
+      // Non-fatal — fall through to auto-generation
+    }
+  }
+  const serviceName = generateServiceName(dirPath, resolvedLabel);
   const currentStatus = await platform.status(serviceName);
 
   if (currentStatus.state === 'running') {
