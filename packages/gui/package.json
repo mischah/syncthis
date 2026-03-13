@@ -1,5 +1,52 @@
 {
   "name": "syncthis-gui",
-  "version": "0.0.0",
-  "private": true
+  "productName": "syncthis",
+  "version": "0.11.0",
+  "description": "Desktop GUI for syncthis",
+  "main": ".vite/build/main.js",
+  "private": true,
+  "scripts": {
+    "prestart": "pkill -f 'syncthis/node_modules/electron' || true",
+    "predev": "pkill -f 'syncthis/node_modules/electron' || true",
+    "start": "electron-forge start",
+    "dev": "electron-forge start",
+    "build": "electron-forge package",
+    "make": "electron-forge make"
+  },
+  "dependencies": {
+    "@radix-ui/react-dialog": "1.1.15",
+    "@radix-ui/react-scroll-area": "1.2.10",
+    "@radix-ui/react-separator": "1.1.8",
+    "@radix-ui/react-slot": "1.2.4",
+    "@radix-ui/react-tooltip": "1.2.8",
+    "@syncthis/shared": "*",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "electron-squirrel-startup": "1.0.1",
+    "iconoir-react": "7.10.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "simple-git": "3.33.0",
+    "syncthis": "*",
+    "tailwind-merge": "3.5.0"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "7.11.1",
+    "@electron-forge/maker-deb": "7.11.1",
+    "@electron-forge/maker-dmg": "7.11.1",
+    "@electron-forge/plugin-auto-unpack-natives": "7.11.1",
+    "@electron-forge/plugin-fuses": "7.11.1",
+    "@electron-forge/plugin-vite": "7.11.1",
+    "@electron/fuses": "1.8.0",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "4.7.0",
+    "autoprefixer": "10.4.27",
+    "electron": "33.2.0",
+    "postcss": "8.5.8",
+    "tailwindcss": "3.4.19",
+    "tailwindcss-animate": "1.0.7",
+    "typescript": "5.9.3",
+    "vite": "7.3.1"
+  }
 }

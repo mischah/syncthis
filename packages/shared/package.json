@@ -1,0 +1,21 @@
+{
+  "name": "@syncthis/shared",
+  "version": "0.11.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc --build --force",
+    "typecheck": "tsc --build --force"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  }
+}
