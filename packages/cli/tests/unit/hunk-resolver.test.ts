@@ -1,5 +1,33 @@
-import { describe, expect, it } from 'vitest';
-import { applyHunkDecisions } from '../../src/conflict/hunk-resolver.js';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+// ---------------------------------------------------------------------------
+// Mocks for resolveChunkByChunk
+// ---------------------------------------------------------------------------
+
+const mockSelect = vi.hoisted(() => vi.fn());
+const mockIsCancel = vi.hoisted(() => vi.fn(() => false));
+const mockLogStep = vi.hoisted(() => vi.fn());
+vi.mock('@clack/prompts', () => ({
+  select: mockSelect,
+  isCancel: mockIsCancel,
+  log: { step: mockLogStep },
+}));
+
+vi.mock('../../src/conflict/diff-renderer.js', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...actual,
+    clearScreen: vi.fn(),
+    renderSingleHunk: vi.fn(() => '(hunk output)'),
+    renderStatusLine: vi.fn(() => '(status)'),
+  };
+});
+
+import {
+  applyHunkDecisions,
+  getHunkCount,
+  resolveChunkByChunk,
+} from '../../src/conflict/hunk-resolver.js';
 
 const local = 'line1\nline2\nline3\nline4\nline5\n';
 const remote = 'line1\nCHANGED2\nline3\nCHANGED4\nline5\n';
@@ -56,5 +84,76 @@ describe('applyHunkDecisions', () => {
     const result = applyHunkDecisions(l, r, ['both']);
     expect(result).toContain('b');
     expect(result).toContain('X');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getHunkCount
+// ---------------------------------------------------------------------------
+
+describe('getHunkCount', () => {
+  it('returns 0 for identical content', () => {
+    expect(getHunkCount(local, local)).toBe(0);
+  });
+
+  it('counts independent change regions', () => {
+    expect(getHunkCount(local, remote)).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveChunkByChunk
+// ---------------------------------------------------------------------------
+
+describe('resolveChunkByChunk', () => {
+  const progress = { index: 0, total: 1, resolved: 0 };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockIsCancel.mockReturnValue(false);
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+  });
+
+  it('returns resolved with original content when files are identical', async () => {
+    const result = await resolveChunkByChunk(local, local, 'file.txt', progress);
+
+    expect(result).toEqual({ status: 'resolved', mergedContent: local });
+    expect(mockSelect).not.toHaveBeenCalled();
+  });
+
+  it('returns back when user cancels', async () => {
+    mockSelect.mockResolvedValueOnce(Symbol('cancel'));
+    mockIsCancel.mockReturnValueOnce(true);
+
+    const result = await resolveChunkByChunk(local, remote, 'file.txt', progress);
+
+    expect(result).toEqual({ status: 'back' });
+  });
+
+  it('returns back when user selects back', async () => {
+    mockSelect.mockResolvedValueOnce('back');
+
+    const result = await resolveChunkByChunk(local, remote, 'file.txt', progress);
+
+    expect(result).toEqual({ status: 'back' });
+  });
+
+  it('resolves all hunks and returns merged content', async () => {
+    // Two hunks in local vs remote, choose 'remote' for both
+    mockSelect.mockResolvedValueOnce('remote').mockResolvedValueOnce('remote');
+
+    const result = await resolveChunkByChunk(local, remote, 'file.txt', progress);
+
+    expect(result.status).toBe('resolved');
+    expect(result.mergedContent).toBe(remote);
+  });
+
+  it('applies mixed decisions correctly', async () => {
+    mockSelect.mockResolvedValueOnce('local').mockResolvedValueOnce('remote');
+
+    const result = await resolveChunkByChunk(local, remote, 'file.txt', progress);
+
+    expect(result.status).toBe('resolved');
+    expect(result.mergedContent).toBe('line1\nline2\nline3\nCHANGED4\nline5\n');
   });
 });
