@@ -40,10 +40,12 @@ export class LaunchdPlatform implements DaemonPlatform {
 
   async status(serviceName: string): Promise<DaemonStatus> {
     try {
-      const { stdout } = await execa('launchctl', ['list', serviceName]);
-      const pidMatch = stdout.match(/"PID"\s*=\s*(\d+)/);
-      if (pidMatch) {
-        return { state: 'running', pid: Number.parseInt(pidMatch[1], 10) };
+      const { stdout } = await execa('launchctl', ['list']);
+      const line = stdout.split('\n').find((l) => l.includes(serviceName));
+      if (!line) return { state: 'not-installed' };
+      const pidStr = line.trim().split(/\t/)[0];
+      if (pidStr !== '-') {
+        return { state: 'running', pid: Number.parseInt(pidStr, 10) };
       }
       return { state: 'stopped' };
     } catch {

@@ -120,7 +120,7 @@ describe('LaunchdPlatform', () => {
   describe('status()', () => {
     it('returns running state with PID when PID is present in output', async () => {
       mockExeca.mockResolvedValueOnce({
-        stdout: '{\n\t"PID" = 12345;\n\t"Label" = "com.syncthis.user-vault-notes";\n};',
+        stdout: '12345\t0\tcom.syncthis.user-vault-notes\n-\t0\tcom.apple.other',
       });
       const result = await platform.status('com.syncthis.user-vault-notes');
       expect(result).toEqual({ state: 'running', pid: 12345 });
@@ -128,10 +128,18 @@ describe('LaunchdPlatform', () => {
 
     it('returns stopped state when no PID in output', async () => {
       mockExeca.mockResolvedValueOnce({
-        stdout: '{\n\t"Label" = "com.syncthis.user-vault-notes";\n};',
+        stdout: '-\t0\tcom.syncthis.user-vault-notes\n-\t0\tcom.apple.other',
       });
       const result = await platform.status('com.syncthis.user-vault-notes');
       expect(result).toEqual({ state: 'stopped' });
+    });
+
+    it('returns not-installed state when service is absent from list', async () => {
+      mockExeca.mockResolvedValueOnce({
+        stdout: '-\t0\tcom.apple.other',
+      });
+      const result = await platform.status('com.syncthis.user-vault-notes');
+      expect(result).toEqual({ state: 'not-installed' });
     });
 
     it('returns not-installed state when launchctl throws', async () => {
