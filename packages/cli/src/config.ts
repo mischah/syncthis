@@ -2,24 +2,9 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Cron } from 'croner';
 
-export interface SyncthisConfig {
-  remote: string;
-  branch: string;
-  cron: string | null;
-  interval: number | null;
-  daemonLabel?: string | null;
-  autostart?: boolean;
-  onConflict: 'stop' | 'auto-both' | 'auto-newest' | 'ask';
-  notify?: boolean;
-}
+import type { CliFlags, SyncthisConfig } from '@syncthis/shared';
 
-export interface CliFlags {
-  branch?: string;
-  cron?: string;
-  interval?: number;
-  onConflict?: 'stop' | 'auto-both' | 'auto-newest' | 'ask';
-  notify?: boolean;
-}
+export type { CliFlags, ConflictStrategy, SyncthisConfig } from '@syncthis/shared';
 
 const CONFIG_FILENAME = '.syncthis.json';
 export const DEFAULT_BRANCH = 'main';

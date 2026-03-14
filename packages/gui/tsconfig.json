@@ -1,12 +1,11 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "dist",
-    "rootDir": "src",
+    "rootDir": "../..",
+    "jsx": "react-jsx",
     "paths": {
       "@syncthis/shared": ["../shared/src/index.ts"]
     }
   },
-  "include": ["src"],
-  "references": [{ "path": "../shared" }]
+  "include": ["src", "forge.config.ts", "vite.*.config.ts", "forge.env.d.ts"]
 }
