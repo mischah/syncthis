@@ -1,4 +1,4 @@
-import { CheckCircle, Plus, Settings, WarningTriangle, XmarkCircle } from 'iconoir-react';
+import { CheckCircle, Plus, WarningTriangle, XmarkCircle } from 'iconoir-react';
 import { useAppContext } from '../context/AppContext';
 import { t } from '../i18n';
 
@@ -27,7 +27,7 @@ function HealthIcon({ level, serviceRunning }: { level: string; serviceRunning: 
 }
 
 export function Sidebar() {
-  const { state, setActiveFolder } = useAppContext();
+  const { state, setActiveFolder, setView } = useAppContext();
 
   function handleAddFolder() {
     window.syncthis.invoke('app:open-dashboard', undefined);
@@ -44,7 +44,10 @@ export function Sidebar() {
             key={folder.dirPath}
             type="button"
             className={`sidebar-row${state.activeFolderPath === folder.dirPath ? ' sidebar-row--active' : ''}`}
-            onClick={() => setActiveFolder(folder.dirPath)}
+            onClick={() => {
+              setActiveFolder(folder.dirPath);
+              if (state.view !== 'detail') setView('detail');
+            }}
           >
             <HealthIcon level={folder.health.level} serviceRunning={folder.health.serviceRunning} />
             <span className="sidebar-folder-name">{folder.name}</span>
@@ -57,9 +60,6 @@ export function Sidebar() {
           <button type="button" className="sidebar-add-btn" onClick={handleAddFolder}>
             <Plus width={14} height={14} />
             {t('action.add_folder')}
-          </button>
-          <button type="button" className="sidebar-settings-btn" title={t('action.settings')}>
-            <Settings width={16} height={16} />
           </button>
         </div>
       </div>

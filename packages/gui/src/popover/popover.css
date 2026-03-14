@@ -27,6 +27,22 @@
   color: var(--text-secondary);
 }
 
+.popover-settings-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  padding: var(--space-1);
+  border-radius: var(--radius-sm);
+}
+
+.popover-settings-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
 .popover-list {
   overflow-y: auto;
   flex: 1;
@@ -112,8 +128,6 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  direction: rtl;
-  text-align: left;
   width: 100%;
 }
 

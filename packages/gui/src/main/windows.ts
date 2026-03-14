@@ -10,9 +10,9 @@ function createDashboardWindow(): BrowserWindow {
   const backgroundColor = nativeTheme.shouldUseDarkColors ? '#1a1918' : '#ffffff';
   const win = new BrowserWindow({
     width: 775,
-    height: 480,
+    height: 680,
     minWidth: 720,
-    minHeight: 480,
+    minHeight: 680,
     show: false,
     backgroundColor,
     webPreferences: {
@@ -36,13 +36,21 @@ function createDashboardWindow(): BrowserWindow {
   return win;
 }
 
-export function showDashboard(): void {
+export function showDashboard(view?: string): void {
   if (!dashboardWindow || dashboardWindow.isDestroyed()) {
     dashboardWindow = createDashboardWindow();
   }
   dashboardWindow.show();
   dashboardWindow.focus();
   if (process.platform === 'darwin') app.dock.show();
+  if (view) {
+    const send = () => dashboardWindow?.webContents.send('app:navigate', { view });
+    if (dashboardWindow.webContents.isLoading()) {
+      dashboardWindow.webContents.once('did-finish-load', send);
+    } else {
+      send();
+    }
+  }
 }
 
 export function hideDashboard(): void {

@@ -1,6 +1,15 @@
 import type { FolderDetail } from '@syncthis/shared';
-import { Folder, FolderPlus, Pause, Play, RefreshDouble, XmarkSquare } from 'iconoir-react';
-import { useCallback, useEffect, useState } from 'react';
+import {
+  Folder,
+  FolderPlus,
+  Pause,
+  Play,
+  RefreshDouble,
+  Settings,
+  XmarkSquare,
+} from 'iconoir-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityLog } from '../components/ActivityLog';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import {
@@ -57,7 +66,7 @@ function conflictModeLabel(mode: string): string {
 }
 
 export function DetailView() {
-  const { state, refreshFolders } = useAppContext();
+  const { state, refreshFolders, setView } = useAppContext();
   const [detail, setDetail] = useState<FolderDetail | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [starting, setStarting] = useState(false);
@@ -80,6 +89,17 @@ export function DetailView() {
   useEffect(() => {
     loadDetail();
   }, [loadDetail]);
+
+  const handleSyncNowRef = useRef(handleSyncNow);
+  handleSyncNowRef.current = handleSyncNow;
+
+  useEffect(() => {
+    function listener() {
+      handleSyncNowRef.current();
+    }
+    window.addEventListener('syncthis:sync-now', listener);
+    return () => window.removeEventListener('syncthis:sync-now', listener);
+  }, []);
 
   if (!state.activeFolderPath) {
     return (
@@ -181,17 +201,28 @@ export function DetailView() {
       <div className="detail-view">
         <div className="detail-header">
           <h1 className="detail-title">{detail.name}</h1>
-          {!showSidebar && (
+          <div className="detail-header-actions">
+            {!showSidebar && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => window.syncthis.invoke('app:open-dashboard', undefined)}
+              >
+                <FolderPlus width={14} height={14} />
+                &nbsp;
+                {t('action.add_folder')}
+              </Button>
+            )}
             <Button
               variant="ghost"
-              size="sm"
-              onClick={() => window.syncthis.invoke('app:open-dashboard', undefined)}
+              size="icon"
+              className="detail-settings-btn"
+              onClick={() => setView('settings')}
+              title={t('action.settings')}
             >
-              <FolderPlus width={14} height={14} />
-              &nbsp;
-              {t('action.add_folder')}
+              <Settings width={16} height={16} />
             </Button>
-          )}
+          </div>
         </div>
 
         <Separator />
@@ -252,6 +283,13 @@ export function DetailView() {
             </>
           )}
         </dl>
+
+        <Separator />
+
+        <div className="detail-activity">
+          <h2 className="activity-heading">{t('activity.title')}</h2>
+          <ActivityLog dirPath={state.activeFolderPath} />
+        </div>
 
         <Separator />
 

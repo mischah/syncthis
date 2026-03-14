@@ -67,10 +67,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       refreshFolders();
     });
 
+    const unsubNavigate = window.syncthis.on('app:navigate', ({ view }) => {
+      setState((prev) => ({ ...prev, view: view as AppState['view'] }));
+    });
+
     return () => {
       clearInterval(interval);
       unsubHealth();
       unsubService();
+      unsubNavigate();
     };
   }, [refreshFolders]);
 

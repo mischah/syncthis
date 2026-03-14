@@ -20,7 +20,7 @@ body,
 
 .app-content {
   flex: 1;
-  overflow: auto;
+  overflow: hidden;
   padding: var(--space-8);
 }
 
@@ -122,22 +122,6 @@ body,
   background: var(--bg-tertiary);
 }
 
-.sidebar-settings-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text-secondary);
-  padding: var(--space-1);
-  border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-}
-
-.sidebar-settings-btn:hover {
-  color: var(--text-primary);
-  background: var(--bg-tertiary);
-}
-
 /* ── Detail View ── */
 
 .detail-view {
@@ -146,6 +130,14 @@ body,
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  height: 100%;
+}
+
+.detail-activity {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .detail-empty {
@@ -169,6 +161,20 @@ body,
   font-weight: 600;
   color: var(--text-primary);
   margin: 0;
+}
+
+.detail-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.detail-settings-btn {
+  color: var(--text-secondary) !important;
+}
+
+.detail-settings-btn:hover {
+  color: var(--text-primary) !important;
 }
 
 .detail-status {
@@ -253,6 +259,7 @@ body,
   flex-wrap: wrap;
   gap: var(--space-2);
   align-items: center;
+  flex-shrink: 0;
 }
 
 .detail-uninstall-btn {
@@ -262,4 +269,41 @@ body,
 
 .detail-uninstall-btn:hover {
   background: var(--status-error-bg) !important;
+}
+
+/* ── View transitions ── */
+
+.view-transition {
+  height: 100%;
+  transition: transform 150ms ease-out, opacity 150ms ease-out;
+}
+
+.view-exit-slide-left {
+  transform: translateX(-20px);
+  opacity: 0;
+}
+
+.view-enter-slide-left {
+  transform: translateX(20px);
+  opacity: 0;
+}
+
+.view-exit-slide-right {
+  transform: translateX(20px);
+  opacity: 0;
+}
+
+.view-enter-slide-right {
+  transform: translateX(-20px);
+  opacity: 0;
+}
+
+.view-fade-out {
+  opacity: 0;
+  transition: opacity 100ms ease-out;
+}
+
+.view-fade-in {
+  opacity: 0;
+  transition: opacity 100ms ease-in;
 }

@@ -1,0 +1,118 @@
+.activity-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.activity-list--overflows {
+  mask-image: linear-gradient(transparent, black 16px, black calc(100% - 16px), transparent);
+  -webkit-mask-image: linear-gradient(transparent, black 16px, black calc(100% - 16px), transparent);
+}
+
+.activity-entry {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-1) 0;
+}
+
+.activity-entry--new {
+  animation: activity-fadein 250ms ease-out;
+}
+
+@keyframes activity-fadein {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.activity-time {
+  min-width: 36px;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 300;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.activity-icon {
+  flex-shrink: 0;
+}
+
+.activity-message {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-empty {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.activity-show-more {
+  margin-top: var(--space-2);
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 0;
+  height: auto;
+}
+
+/* Skeleton */
+
+.activity-skeleton {
+  pointer-events: none;
+}
+
+.activity-skeleton-block {
+  display: inline-block;
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+  height: 12px;
+  animation: activity-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes activity-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* Root wrapper — fills remaining space in detail-activity */
+
+.activity-root {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Section heading */
+
+.activity-heading {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-3);
+  flex-shrink: 0;
+}

@@ -1,17 +1,34 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
-import type { FolderDetail, FolderSummary, HealthStatus, ServiceStatus } from '@syncthis/shared';
+import type {
+  AppSettings,
+  FolderDetail,
+  FolderSummary,
+  HealthStatus,
+  LogEntry,
+  ServiceStatus,
+} from '@syncthis/shared';
 import { BrowserWindow, app, ipcMain, shell } from 'electron';
 import simpleGit from 'simple-git';
-import { loadConfig } from '../../../cli/src/config.js';
+import { loadConfig, writeConfig } from '../../../cli/src/config.js';
 import { determineHealth } from '../../../cli/src/health-check.js';
 import { createLogger } from '../../../cli/src/logger.js';
 import { runSyncCycle } from '../../../cli/src/sync.js';
+import { loadAppSettings, saveAppSettings } from './app-settings.js';
 import { runCli, startService, stopService } from './cli-bridge.js';
+import { readRecentLogs, watchLogFile } from './log-parser.js';
 import { hideDashboard, openDashboard } from './windows.js';
 
 const REGISTRY_PATH = join(homedir(), '.syncthis', 'gui-folders.json');
+
+const logWatchers = new Map<string, () => void>();
+
+function broadcastLogLine(dirPath: string, entry: LogEntry): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    win.webContents.send('logs:line', { dirPath, entry });
+  }
+}
 
 async function readRegistry(): Promise<string[]> {
   try {
@@ -155,8 +172,8 @@ export function registerIpcHandlers(): void {
     },
   );
 
-  ipcMain.handle('app:open-dashboard', (): void => {
-    openDashboard();
+  ipcMain.handle('app:open-dashboard', (_, args?: { view?: string }): void => {
+    openDashboard(args?.view);
   });
 
   ipcMain.handle('app:hide-dashboard', (): void => {
@@ -179,6 +196,52 @@ export function registerIpcHandlers(): void {
     if (win) {
       win.setSize(360, Math.min(Math.max(height, 80), 520));
       if (win.getOpacity() < 1) win.setOpacity(1);
+    }
+  });
+
+  ipcMain.handle('app:settings-read', async (): Promise<AppSettings> => {
+    return loadAppSettings();
+  });
+
+  ipcMain.handle('app:settings-write', async (_, settings: AppSettings): Promise<void> => {
+    await saveAppSettings(settings);
+    app.setLoginItemSettings({ openAtLogin: settings.launchOnLogin });
+  });
+
+  ipcMain.handle('config:read', async (_, { dirPath }: { dirPath: string }) => {
+    return loadConfig(dirPath);
+  });
+
+  ipcMain.handle(
+    'config:write',
+    async (
+      _,
+      { dirPath, config }: { dirPath: string; config: Parameters<typeof writeConfig>[1] },
+    ) => {
+      await writeConfig(dirPath, config);
+    },
+  );
+
+  ipcMain.handle(
+    'logs:recent',
+    async (_, { dirPath, maxLines }: { dirPath: string; maxLines?: number }) => {
+      return readRecentLogs(dirPath, maxLines);
+    },
+  );
+
+  ipcMain.handle('logs:subscribe', (_, { dirPath }: { dirPath: string }): undefined => {
+    if (logWatchers.has(dirPath)) return;
+    const unsubscribe = watchLogFile(dirPath, (entry) => {
+      broadcastLogLine(dirPath, entry);
+    });
+    logWatchers.set(dirPath, unsubscribe);
+  });
+
+  ipcMain.handle('logs:unsubscribe', (_, { dirPath }: { dirPath: string }): undefined => {
+    const unsubscribe = logWatchers.get(dirPath);
+    if (unsubscribe) {
+      unsubscribe();
+      logWatchers.delete(dirPath);
     }
   });
 }

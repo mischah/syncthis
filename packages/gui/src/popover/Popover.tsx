@@ -1,5 +1,5 @@
 import type { FolderSummary } from '@syncthis/shared';
-import { AppWindow, Plus, RefreshDouble } from 'iconoir-react';
+import { AppWindow, Plus, RefreshDouble, Settings } from 'iconoir-react';
 import { useEffect, useRef, useState } from 'react';
 import { t } from '../renderer/i18n/index.js';
 import { shortenPath } from '../renderer/lib/format-remote.js';
@@ -125,6 +125,14 @@ export function Popover() {
     <div ref={containerRef} className="popover-container">
       <header className="popover-header">
         <span className="popover-title">{t('app.name')}</span>
+        <button
+          type="button"
+          className="popover-settings-btn"
+          onClick={() => window.syncthis.invoke('app:open-dashboard', { view: 'settings' })}
+          title={t('action.settings')}
+        >
+          <Settings width={14} height={14} />
+        </button>
       </header>
 
       {folders.length === 0 ? (

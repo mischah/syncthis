@@ -1,4 +1,5 @@
 import { app } from 'electron';
+import { loadAppSettings } from './app-settings.js';
 import { ensureCliBundled } from './cli-bundler.js';
 import { readRegistry, registerIpcHandlers } from './ipc.js';
 import { createTray } from './tray.js';
@@ -19,6 +20,9 @@ app.on('ready', async () => {
 
   registerIpcHandlers();
   createTray();
+
+  const settings = await loadAppSettings();
+  app.setLoginItemSettings({ openAtLogin: settings.launchOnLogin });
 
   // Open dashboard on first launch (no folders registered yet)
   const folders = await readRegistry();

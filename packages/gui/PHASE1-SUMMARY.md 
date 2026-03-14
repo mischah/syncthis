@@ -1,0 +1,493 @@
+# GUI Phase 1 — Technical Summary
+
+**Commit:** `8e9715f` — _WIP: GUI – Phase 1 — Electron Skeleton + Tray + Detail View_
+
+---
+
+## Overview
+
+Phase 1 delivers a working Electron tray app that reads existing syncthis-managed folders (initialized via CLI) and renders their status in a dashboard. It establishes the full architecture — process model, IPC layer, design system, i18n — that all subsequent phases build on.
+
+**What works after Phase 1:**
+
+- System tray icon with live status (idle / syncing / warning / error)
+- Tray popover: folder list with health badges, sync-now, open dashboard
+- Dashboard Detail View: status, info grid, activity-less action bar (start/stop/sync now/open/remove)
+- Sidebar (appears at ≥ 2 folders)
+- Light + dark mode following system preference
+- CLI bundled to `~/.syncthis/bin/syncthis` on first launch
+
+**Not included:** Setup wizard, GitHub OAuth, conflict resolution, settings UI, activity log, notifications, update check.
+
+---
+
+## Monorepo changes
+
+Two new packages added under `packages/`:
+
+| Package | Purpose |
+|---------|---------|
+| `packages/shared` | Shared TypeScript types (config, health, IPC) used by both CLI and GUI |
+| `packages/gui` | Electron app (this package) |
+
+### Root `package.json` — new scripts
+
+```json
+"dev:cli":   "npm run dev -w packages/cli",
+"dev:gui":   "npm run dev -w packages/gui",
+"start:gui": "npm run start -w packages/gui",
+"make:gui":  "npm run make -w packages/gui"
+```
+
+Typecheck now covers all three packages in sequence (shared must build before CLI/GUI typecheck):
+
+```json
+"typecheck": "npm run typecheck -w packages/shared && npm run typecheck -w packages/cli && npx tsc --noEmit -p packages/gui/tsconfig.json"
+```
+
+### CLI changes
+
+- `packages/cli/src/config.ts` — `readConfig` and `writeConfig` now accept an optional `dirPath` argument so the GUI can read/write config for any folder, not just `process.cwd()`.
+- `packages/cli/tsconfig.json` — set `composite: true` to support TypeScript project references from `packages/shared`.
+- `packages/cli/package.json` — added `@syncthis/shared: "*"` dependency (workspace ref).
+
+---
+
+## `packages/shared`
+
+Extracts type definitions shared between CLI and GUI.
+
+```
+packages/shared/src/
+├── config.types.ts       — SyncthisConfig, ConflictStrategy
+├── health.types.ts       — HealthStatus, HealthLevel, ServiceStatus
+├── ipc.types.ts          — IpcChannels, IpcEvents, FolderSummary, FolderDetail, …
+├── json-output.types.ts  — JsonOutput (CLI --json response shape)
+└── index.ts              — re-exports all types
+```
+
+### Key types
+
+**`SyncthisConfig`**
+
+```typescript
+interface SyncthisConfig {
+  remote: string;
+  branch: string;
+  cron: string | null;
+  interval: number | null;
+  daemonLabel?: string | null;
+  autostart?: boolean;
+  onConflict: ConflictStrategy;  // 'auto-both' | 'auto-newest' | 'ask' | 'stop'
+  notify?: boolean;
+}
+```
+
+**`HealthStatus`**
+
+```typescript
+interface HealthStatus {
+  dirPath: string;
+  level: HealthLevel;          // 'healthy' | 'degraded' | 'unhealthy'
+  lastSync: string | null;     // ISO timestamp
+  uptime: number | null;
+  consecutiveFailures: number;
+  syncCycles: number;
+  serviceRunning: boolean;
+}
+```
+
+**`IpcChannels` / `IpcEvents`** — full typed IPC contract (see `ipc.types.ts`). Phase 1 implements a subset; remaining channels are stubbed for future phases.
+
+### Build setup
+
+`tsconfig.json` uses `composite: true` so downstream packages can reference it via TypeScript project references. Build script: `tsc --build --force` (forces full rebuild to avoid stale cache issues from `tsconfig.tsbuildinfo`).
+
+---
+
+## `packages/gui` — Main Process
+
+### `main.ts`
+
+App lifecycle entry point.
+
+- `app.dock.hide()` on macOS — tray-resident app, no persistent Dock presence
+- Calls `ensureCliBundled()` on startup to install CLI to `~/.syncthis/bin/syncthis`
+- Registers all IPC handlers (`registerIpcHandlers()`)
+- Creates system tray (`createTray()`)
+- On `ready-to-show`: opens dashboard automatically if no folders are registered
+- `app.on('window-all-closed')` — does _not_ quit; app lives in tray
+
+### `tray.ts`
+
+System tray icon and popover management.
+
+**Icon variants** (4 states × 3 files each = 12 PNG resources):
+
+| State | File | Meaning |
+|-------|------|---------|
+| idle | `tray-idleTemplate.png` | All folders healthy |
+| syncing | `tray-syncingTemplate.png` | At least one sync running |
+| warning | `tray-warningTemplate.png` | At least one folder degraded |
+| error | `tray-errorTemplate.png` | Unhealthy or conflict |
+
+macOS: template images (`*Template.png`) — monochrome, system adapts to light/dark menu bar. `@2x` variants for Retina. Linux: standard PNG files (no template convention).
+
+**Popover positioning:**
+
+- macOS: anchored below tray bounds (`tray.getBounds()`)
+- Linux: positioned above system tray using screen height
+
+**Popover lifecycle:** toggles on tray click; auto-closes on blur or `Escape`.
+
+**`setTrayStatus(status)`** — public API called by IPC handlers to update the icon state.
+
+### `windows.ts`
+
+Creates and manages the two `BrowserWindow` instances.
+
+**Dashboard window** (`createDashboard()`):
+
+- Size: 900×600, min 720×480, resizable
+- `show: false` on create — shown on demand
+- `hide()` on close (not quit); macOS Dock icon shown while open, hidden on close
+- Background color adapts to system dark/light mode
+
+**Popover window** (`createPopover()`):
+
+- Size: 360×480, frameless, no traffic lights (`titleBarStyle: 'customButtonsOnHover'`)
+- `show: false` by default
+- `alwaysOnTop: true` — stays above other windows when open
+- `blur` event → hides automatically
+
+Both windows use `preload.ts` for context isolation.
+
+### `ipc.ts`
+
+Central IPC handler registry. All handlers registered via `ipcMain.handle()`.
+
+**Folder registry** — stored at `~/.syncthis/gui-folders.json` as `string[]` (array of absolute `dirPath` values). GUI-only persistence; CLI does not know about this file.
+
+**Implemented channels (Phase 1):**
+
+| Channel | Handler |
+|---------|---------|
+| `folders:list` | Read registry → load config + health for each → return `FolderSummary[]` |
+| `folders:detail` | Load config + health + last git commit → return `FolderDetail` |
+| `folders:remove` | Stop service (CLI subprocess) → remove from registry |
+| `health:status` | Call CLI `determineHealth()` directly for one folder |
+| `health:all` | Same for all registered folders |
+| `service:start` | CLI subprocess: `syncthis start --path … --json` |
+| `service:stop` | CLI subprocess: `syncthis stop --path … --json` |
+| `service:sync-now` | Imports and calls `runSyncCycle()` directly (no subprocess) |
+| `app:open-dashboard` | Show/focus dashboard window |
+| `app:hide-dashboard` | Hide dashboard window |
+| `app:quit` | `app.quit()` |
+| `app:reveal-in-file-manager` | `shell.openPath(dirPath)` |
+| `app:get-version` | `app.getVersion()` |
+| `app:resize-popover` | Resize popover window to fit content |
+
+After `service:start` / `service:stop`, broadcasts `service:state-changed` event to all windows.
+
+### `cli-bridge.ts`
+
+Thin wrapper for spawning CLI subprocesses.
+
+- Always appends `--json` flag
+- Resolves binary path from `cli-bundler.ts`
+- Parses JSON stdout; throws on non-zero exit or malformed output
+- Used for: `start`, `stop`, `uninstall`
+
+### `cli-bundler.ts`
+
+Installs the bundled CLI to a stable user path on first launch.
+
+| Mode | Source | Destination |
+|------|--------|-------------|
+| Development | `packages/cli/dist/cli.js` | `~/.syncthis/bin/syncthis` (wrapper script) |
+| Production | `resources/cli/cli.js` (inside asar) | `~/.syncthis/bin/syncthis` (wrapper script) |
+
+Writes a `#!/usr/bin/env node` wrapper script, sets `chmod 755`. OS service definitions (launchd / systemd) point to this path, decoupling them from the app bundle location.
+
+---
+
+## `packages/gui` — Preload
+
+### `preload.ts`
+
+Exposes a typed API to the renderer via `contextBridge`. No Node.js APIs leak directly.
+
+```typescript
+window.syncthis = {
+  invoke<K extends keyof IpcChannels>(
+    channel: K,
+    args: IpcChannels[K]['args']
+  ): Promise<IpcChannels[K]['result']>
+
+  on<K extends keyof IpcEvents>(
+    event: K,
+    callback: (data: IpcEvents[K]) => void
+  ): () => void  // returns unsubscribe function
+}
+```
+
+Type declarations in `src/renderer/types/window.d.ts` extend `Window` so TypeScript knows about `window.syncthis` in renderer code.
+
+---
+
+## `packages/gui` — Renderer
+
+React 18 app. Two separate entry points:
+
+| Entry | File | Window |
+|-------|------|--------|
+| `renderer` | `src/renderer/index.tsx` | Dashboard |
+| `popover` | `src/popover/index.tsx` | Tray popover |
+
+### `AppContext.tsx`
+
+Global state provider for the dashboard.
+
+```typescript
+interface AppState {
+  folders: FolderSummary[];
+  activeFolderPath: string | null;
+  view: 'detail' | 'conflict' | 'setup' | 'settings';
+  githubConnected: boolean;
+  updateAvailable: UpdateInfo | null;
+}
+```
+
+- Initializes by calling `folders:list` on mount
+- Polls `health:all` every **10 seconds** → updates folder health badges
+- Subscribes to `health:changed` + `service:state-changed` events for real-time updates
+- `setActiveFolder(path)` — updates selection
+- `refreshFolders()` — force refetch (called after add/remove)
+
+### `App.tsx`
+
+Root layout. Sidebar rendered only when `folders.length >= 2`. Active view determined by `AppContext.view`. Keyboard shortcuts registered via `useEffect`:
+
+| Shortcut | Action |
+|----------|--------|
+| `Cmd/Ctrl+W` | Hide dashboard |
+| `Cmd/Ctrl+Q` | Quit app |
+
+### `Sidebar.tsx`
+
+Left panel (220px, appears at ≥ 2 folders). Folder rows with `HealthIcon` (Iconoir icons coloured per health level). Footer: "Add folder" + settings button.
+
+### `DetailView.tsx`
+
+Main content area for a single folder.
+
+**Status block:** `Badge` (healthy/degraded/unhealthy) + relative last-sync time. Service stopped: italic "Service stopped" in `text-tertiary`.
+
+**Info grid** (two-column key/value):
+
+| Label | Source | Display |
+|-------|--------|---------|
+| Schedule | `config.interval` / `config.cron` | `formatSchedule()` → "every 5 minutes" |
+| Branch | `config.branch` | Raw value |
+| Remote | `config.remote` | `shortenRemoteUrl()` |
+| Conflict mode | `config.onConflict` | Human label via `t()` |
+| Last commit | `git log -1` | Message + time |
+
+**Action bar:**
+
+- **Start / Stop** — toggles based on `health.serviceRunning`. Stop: calls `service:stop`. Start: calls `service:start`, then polls every 400ms (up to 3.2s) until `serviceRunning` is `true`.
+- **Sync now** — `service:sync-now`. Disabled when stopped.
+- **Open folder** — `app:reveal-in-file-manager`.
+- **Remove** — confirmation dialog → `folders:remove` → `refreshFolders()`.
+
+### `Popover.tsx`
+
+Standalone React tree (separate entry point, no shared context with dashboard).
+
+- Fetches `folders:list` on mount, polls `health:all` every 10s
+- Folder rows: status dot (coloured), name, relative last-sync, sync-now button
+- Empty state when no folders
+- Footer: "Add folder" (→ `app:open-dashboard`) | "Open" (→ `app:open-dashboard`)
+- Calls `app:resize-popover` whenever content height changes
+
+---
+
+## Design system
+
+### Theme (`src/renderer/styles/theme.css`)
+
+CSS custom properties, defined on `:root` with `prefers-color-scheme: dark` override.
+
+**Neutral ramp (warm stone):**
+
+| Token | Light | Dark |
+|-------|-------|------|
+| `--bg-primary` | `#ffffff` | `#1a1918` |
+| `--bg-secondary` | `#f9f8f6` | `#212120` |
+| `--bg-tertiary` | `#f2f0ed` | `#2a2928` |
+| `--text-primary` | `#1a1918` | `#e8e6e1` |
+| `--text-secondary` | `#6f6d66` | `#9c9a93` |
+| `--text-tertiary` | `#a3a19a` | `#6f6d66` |
+| `--border-default` | `#e8e6e1` | `#333230` |
+
+**Semantic colors:**
+
+| Token | Light | Dark |
+|-------|-------|------|
+| `--status-healthy` | `#3d8b5e` | `#5ab87a` |
+| `--status-warning` | `#c08a2e` | `#d4a03c` |
+| `--status-error` | `#c4422b` | `#e05a42` |
+| `--accent` | `#4a7bdb` | `#6b9aef` |
+
+### Typography
+
+Fonts bundled as woff2 in `resources/fonts/`:
+
+| File | Weight | Usage |
+|------|--------|-------|
+| `inter-300.woff2` | Light | Timestamps, metadata |
+| `inter-400.woff2` | Regular | Body text |
+| `inter-400-italic.woff2` | Italic | Hints, empty states |
+| `inter-500.woff2` | Medium | Headings, active nav |
+| `inter-600.woff2` | Semi-bold | Page titles, folder names |
+| `cascadia-code-400.woff2` | Regular (mono) | Diff views, file paths |
+
+Base font size: 14px (`1rem`). Size scale: 11px / 12px / 14px / 16px / 20px.
+
+### shadcn/ui components
+
+`Badge`, `Button`, `Dialog`, `ScrollArea`, `Separator`, `Tooltip` — all customized to use the CSS custom properties from `theme.css` instead of shadcn's default palette.
+
+`Button` and `Badge` use `class-variance-authority` (CVA) for variant composition.
+
+### Tailwind
+
+Tailwind 3 configured with `content` paths covering all TSX/TS source files. Custom tokens in `tailwind.config.js` map to the CSS custom property names so both Tailwind utilities and raw `var()` references work interchangeably.
+
+---
+
+## i18n
+
+All user-facing strings go through `t()`. Zero hardcoded strings in components.
+
+**`src/renderer/i18n/en.json`** — 50+ keys:
+
+```json
+{
+  "status.healthy": "Healthy",
+  "status.degraded": "Degraded",
+  "status.unhealthy": "Unhealthy",
+  "status.service_stopped": "Service stopped",
+  "status.synced_ago": "Synced {time} ago",
+  "action.sync_now": "Sync now",
+  "action.start": "Start syncing",
+  "action.stop": "Stop syncing",
+  "conflict_mode.auto_both": "Keep both versions",
+  "conflict_mode.auto_newest": "Keep newest",
+  "conflict_mode.ask": "Ask me",
+  ...
+}
+```
+
+**`src/renderer/i18n/index.ts`**
+
+```typescript
+export function t(key: TranslationKey, vars?: Record<string, string | number>): string {
+  let str = en[key] ?? key;
+  if (vars) for (const [k, v] of Object.entries(vars)) str = str.replace(`{${k}}`, String(v));
+  return str;
+}
+```
+
+`TranslationKey` is derived from `keyof typeof en`, so missing/typo'd keys are caught at compile time.
+
+---
+
+## Utility functions
+
+### `format-time.ts`
+
+**`formatRelativeTime(isoString)`** — converts ISO timestamp to human-readable relative time:
+
+| Elapsed | Output |
+|---------|--------|
+| < 10s | "just now" |
+| < 60s | "30 seconds ago" |
+| < 2min | "1 minute ago" |
+| < 60min | "5 minutes ago" |
+| < 2h | "1 hour ago" |
+| < 24h | "3 hours ago" |
+| otherwise | "2 days ago" |
+
+**`formatSchedule(config)`** — converts `interval` (minutes) or `cron` string to human label:
+
+| Value | Output |
+|-------|--------|
+| `interval: 1` | "every minute" |
+| `interval: 60` | "every hour" |
+| `interval: 1440` | "every day" |
+| `interval: n` | "every n minutes" / "every n hours" |
+| `cron: "…"` | raw cron string (future: human parse) |
+
+### `format-remote.ts`
+
+**`shortenRemoteUrl(url)`** — strips `https://`, `git@`, and `.git` suffix for display. Both `https://github.com/user/repo.git` and `git@github.com:user/repo.git` → `github.com/user/repo`.
+
+---
+
+## Build & tooling
+
+### Electron Forge (`forge.config.ts`)
+
+**Makers:**
+
+| Platform | Format | Maker |
+|----------|--------|-------|
+| macOS | `.dmg` | `@electron-forge/maker-dmg` |
+| Linux | `.deb` | `@electron-forge/maker-deb` |
+
+Electron Forge only runs makers compatible with the current OS — `npm run make` on macOS produces only the DMG, on Linux only the DEB. Cross-compilation is not supported; CI handles both platforms natively.
+
+**Vite plugins** — 4 separate entry points:
+
+| Name | Entry | Output |
+|------|-------|--------|
+| Main | `src/main/main.ts` | `.vite/build/main.js` |
+| Preload | `src/preload/preload.ts` | `.vite/build/preload.js` |
+| Renderer | `src/renderer/index.tsx` | `.vite/renderer/…` |
+| Popover | `src/popover/index.tsx` | `.vite/renderer/popover/…` |
+
+**Electron Fuses** (security hardening):
+- `RunAsNode: false`
+- `EnableCookieEncryption: true`
+- `EnableNodeOptionsEnvironmentVariable: false`
+- `EnableEmbeddedAsarIntegrityValidation: true`
+- `OnlyLoadAppFromAsar: true`
+
+### TypeScript
+
+`tsconfig.json` extends `../../tsconfig.base.json` with:
+
+```json
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "paths": { "@syncthis/shared": ["../shared/src/index.ts"] }
+  }
+}
+```
+
+The path alias allows importing shared types without `../../../` traversal. In production builds, the alias resolves to the built `dist/` package.
+
+### npm scripts
+
+```json
+"prestart": "pkill -f 'syncthis/node_modules/electron' || true",
+"predev":   "pkill -f 'syncthis/node_modules/electron' || true",
+"start":    "electron-forge start",
+"dev":      "electron-forge start",
+"build":    "electron-forge package",
+"make":     "electron-forge make"
+```
+
+`predev`/`prestart` lifecycle hooks kill any stale Electron process before starting, preventing port conflicts and ghost tray icons during development.
