@@ -64,6 +64,17 @@ export async function handleInit(flags: InitFlags): Promise<void> {
   }
 }
 
+function stripCredentials(url: string): string {
+  try {
+    const u = new URL(url);
+    u.username = '';
+    u.password = '';
+    return u.toString();
+  } catch {
+    return url; // SSH or other non-HTTP URLs — compare as-is
+  }
+}
+
 async function handleInitRemote(
   dirPath: string,
   remote: string,
@@ -93,15 +104,15 @@ async function handleInitRemote(
     const remotes = await git.getRemotes(true);
     const origin = remotes.find((r) => r.name === 'origin');
     if (origin !== undefined) {
-      if (origin.refs.fetch !== remote) {
+      if (stripCredentials(origin.refs.fetch) !== stripCredentials(remote)) {
         if (json)
           printJsonError(
             'init',
-            `Remote 'origin' already exists with a different URL: ${origin.refs.fetch}`,
+            `Remote 'origin' already exists with a different URL: ${stripCredentials(origin.refs.fetch)}`,
             'REMOTE_CONFLICT',
           );
         console.error(
-          `Error: Remote 'origin' already exists with a different URL: ${origin.refs.fetch}`,
+          `Error: Remote 'origin' already exists with a different URL: ${stripCredentials(origin.refs.fetch)}`,
         );
         process.exit(1);
       }
@@ -135,7 +146,12 @@ async function handleInitRemote(
   if (statusOutput.trim() !== '') {
     await git.add(['-A']);
     await git.commit('chore: initial syncthis setup');
-    await git.push(['--set-upstream', 'origin', branch]);
+    try {
+      await git.push(['--set-upstream', 'origin', branch]);
+    } catch {
+      // Push may fail if remote has diverged commits (e.g. repo created with a README).
+      // Non-fatal: the sync service will pull and reconcile on first run.
+    }
   }
 
   if (json) {
@@ -174,7 +190,7 @@ async function handleInitClone(
   const git = simpleGit();
   await git.clone(cloneUrl, dirPath);
 
-  await writeConfig(dirPath, createDefaultConfig(cloneUrl, branch));
+  await writeConfig(dirPath, createDefaultConfig(stripCredentials(cloneUrl), branch));
 
   if (json) {
     const data: InitData = { dirPath, remote: cloneUrl, branch, cloned: true };

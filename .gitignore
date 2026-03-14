@@ -8,3 +8,4 @@ coverage
 .claude
 .DS_Store
 demo/*.png
+.env

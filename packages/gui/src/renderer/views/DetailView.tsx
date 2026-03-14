@@ -21,7 +21,7 @@ import {
   DialogTitle,
 } from '../components/ui/dialog';
 import { Separator } from '../components/ui/separator';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip';
+import { TooltipProvider } from '../components/ui/tooltip';
 import { useAppContext } from '../context/AppContext';
 import { t } from '../i18n';
 import { shortenPath, shortenRemoteUrl } from '../lib/format-remote';
@@ -103,8 +103,13 @@ export function DetailView() {
 
   if (!state.activeFolderPath) {
     return (
-      <div className="detail-empty">
-        <p>{t('status.no_folders')}</p>
+      <div className="no-folders-state">
+        <FolderPlus className="no-folders-icon" width={48} height={48} />
+        <h2 className="no-folders-title">{t('empty.title')}</h2>
+        <p className="settings-description">{t('empty.description')}</p>
+        <Button variant="secondary" size="sm" onClick={() => setView('setup')}>
+          {t('action.add_folder')}
+        </Button>
       </div>
     );
   }
@@ -203,11 +208,7 @@ export function DetailView() {
           <h1 className="detail-title">{detail.name}</h1>
           <div className="detail-header-actions">
             {!showSidebar && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => window.syncthis.invoke('app:open-dashboard', undefined)}
-              >
+              <Button variant="ghost" size="sm" onClick={() => setView('setup')}>
                 <FolderPlus width={14} height={14} />
                 &nbsp;
                 {t('action.add_folder')}
@@ -228,20 +229,29 @@ export function DetailView() {
         <Separator />
 
         <div className="detail-status">
-          {isRunning ? (
-            <StatusBadge level={health.level} />
-          ) : (
-            <Badge
-              style={{
-                background: 'var(--bg-tertiary)',
-                color: 'var(--text-secondary)',
-                border: '1px solid transparent',
-              }}
-            >
-              {t('status.stopped')}
-            </Badge>
+          <div className="detail-status-row">
+            {isRunning ? (
+              <StatusBadge level={health.level} />
+            ) : (
+              <Badge
+                style={{
+                  background: 'var(--bg-tertiary)',
+                  color: 'var(--text-secondary)',
+                  border: '1px solid transparent',
+                }}
+              >
+                {t('status.stopped')}
+              </Badge>
+            )}
+            {statusDesc && <span className="detail-sync-time">{statusDesc}</span>}
+          </div>
+          {health.level !== 'healthy' && health.reasons.length > 0 && (
+            <ul className="detail-status-reasons">
+              {health.reasons.map((r) => (
+                <li key={r}>{r}</li>
+              ))}
+            </ul>
           )}
-          {statusDesc && <span className="detail-sync-time">{statusDesc}</span>}
         </div>
 
         <Separator />
@@ -260,14 +270,7 @@ export function DetailView() {
 
           <dt>{t('detail.remote')}</dt>
           <dd>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="detail-remote-short">{remoteShort}</span>
-              </TooltipTrigger>
-              <TooltipContent>
-                <span>{config.remote}</span>
-              </TooltipContent>
-            </Tooltip>
+            <span className="detail-remote-short">{remoteShort}</span>
           </dd>
 
           <dt>{t('detail.conflict_mode')}</dt>

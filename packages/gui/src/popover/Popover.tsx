@@ -114,7 +114,7 @@ export function Popover() {
   });
 
   function handleAddFolder() {
-    window.syncthis.invoke('app:open-dashboard', undefined);
+    window.syncthis.invoke('app:open-dashboard', { view: 'setup' });
   }
 
   function handleOpen() {

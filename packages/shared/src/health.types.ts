@@ -8,6 +8,7 @@ export interface HealthStatus {
   consecutiveFailures: number;
   syncCycles: number;
   serviceRunning: boolean;
+  reasons: string[];
 }
 
 export type ServiceStatus = 'running' | 'stopped' | 'not-installed';

@@ -2,11 +2,13 @@ import type { AppSettings, ConflictStrategy, SyncthisConfig } from '@syncthis/sh
 import { Cron } from 'croner';
 import { NavArrowLeft } from 'iconoir-react';
 import { useCallback, useEffect, useState } from 'react';
+import { GitHubAuthFlow } from '../components/GitHubAuthFlow';
 import { Toast } from '../components/Toast';
 import { Button } from '../components/ui/button';
 import { Separator } from '../components/ui/separator';
 import { useAppContext } from '../context/AppContext';
 import { t } from '../i18n';
+import { sanitizeRemoteUrl } from '../lib/format-remote';
 import './Settings.css';
 
 type ScheduleMode = 'interval' | 'cron';
@@ -109,9 +111,21 @@ interface FolderSettingsFormProps {
   dirPath: string;
 }
 
+const GITIGNORE_PLACEHOLDER = `# Obsidian - workspace state (device-specific, do not sync)
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+
+# Trash
+.trash/
+
+# macOS
+.DS_Store`;
+
 function FolderSettingsForm({ dirPath }: FolderSettingsFormProps) {
   const [config, setConfig] = useState<SyncthisConfig | null>(null);
   const [form, setForm] = useState<FormState | null>(null);
+  const [gitignoreContent, setGitignoreContent] = useState('');
+  const [origGitignore, setOrigGitignore] = useState('');
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ message: string; variant: 'success' | 'error' } | null>(
     null,
@@ -121,12 +135,16 @@ function FolderSettingsForm({ dirPath }: FolderSettingsFormProps) {
 
   useEffect(() => {
     let cancelled = false;
-    window.syncthis
-      .invoke('config:read', { dirPath })
-      .then((cfg) => {
+    Promise.all([
+      window.syncthis.invoke('config:read', { dirPath }),
+      window.syncthis.invoke('gitignore:read', { dirPath }),
+    ])
+      .then(([cfg, gi]) => {
         if (cancelled) return;
         setConfig(cfg);
         setForm(configToForm(cfg));
+        setGitignoreContent(gi);
+        setOrigGitignore(gi);
       })
       .catch(() => {
         if (!cancelled) setConfig(null);
@@ -149,7 +167,7 @@ function FolderSettingsForm({ dirPath }: FolderSettingsFormProps) {
   const ivValid =
     form.scheduleMode !== 'interval' || intervalValid(form.intervalValue, form.intervalUnit);
   const hasErrors = !cronValid || !branchValid || !ivValid;
-  const dirty = isDirty(form, config);
+  const dirty = isDirty(form, config) || gitignoreContent !== origGitignore;
   const canSave = dirty && !hasErrors && !saving;
 
   async function handleSave() {
@@ -157,7 +175,11 @@ function FolderSettingsForm({ dirPath }: FolderSettingsFormProps) {
     setSaving(true);
     try {
       const updated = formToConfig(form, config);
-      await window.syncthis.invoke('config:write', { dirPath, config: updated });
+      await Promise.all([
+        window.syncthis.invoke('config:write', { dirPath, config: updated }),
+        window.syncthis.invoke('gitignore:write', { dirPath, content: gitignoreContent }),
+      ]);
+      setOrigGitignore(gitignoreContent);
 
       if (needsRestart(form, config)) {
         await window.syncthis.invoke('service:stop', { dirPath });
@@ -179,7 +201,7 @@ function FolderSettingsForm({ dirPath }: FolderSettingsFormProps) {
 
   async function handleCopy() {
     if (!config) return;
-    await navigator.clipboard.writeText(config.remote);
+    await navigator.clipboard.writeText(sanitizeRemoteUrl(config.remote));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
@@ -201,7 +223,7 @@ function FolderSettingsForm({ dirPath }: FolderSettingsFormProps) {
       <div className="settings-field">
         <span className="settings-label">{t('settings.remote')}</span>
         <div className="settings-remote-row">
-          <span className="settings-remote-value">{config.remote}</span>
+          <span className="settings-remote-value">{sanitizeRemoteUrl(config.remote)}</span>
           <Button variant="ghost" size="sm" onClick={handleCopy}>
             {copied ? t('settings.remote_copied') : t('settings.remote_copy')}
           </Button>
@@ -354,6 +376,36 @@ function FolderSettingsForm({ dirPath }: FolderSettingsFormProps) {
         <span className="settings-hint-text">{t('settings.label_hint')}</span>
       </div>
 
+      {/* Sync exclusions */}
+      <div className="settings-field">
+        <label className="settings-label" htmlFor={`gitignore-${dirPath}`}>
+          {t('settings.gitignore_label')}
+        </label>
+        <textarea
+          id={`gitignore-${dirPath}`}
+          className="settings-input settings-input--mono settings-textarea"
+          value={gitignoreContent}
+          onChange={(e) => setGitignoreContent(e.target.value)}
+          rows={8}
+          placeholder={GITIGNORE_PLACEHOLDER}
+          spellCheck={false}
+        />
+        <span className="settings-hint-text">
+          {t('settings.gitignore_hint')}{' '}
+          <button
+            type="button"
+            className="settings-link-button"
+            onClick={() => {
+              void window.syncthis.invoke('github:open-auth-page', {
+                url: 'https://git-scm.com/docs/gitignore#_pattern_format',
+              });
+            }}
+          >
+            {t('settings.gitignore_docs')}
+          </button>
+        </span>
+      </div>
+
       {/* Save */}
       <div className="settings-save-row">
         <Button disabled={!canSave} onClick={handleSave}>
@@ -373,19 +425,30 @@ function AppSettingsForm() {
   const [version, setVersion] = useState('');
   const [ivValue, setIvValue] = useState(5);
   const [ivUnit, setIvUnit] = useState<IntervalUnit>('minutes');
+  const [githubStatus, setGithubStatus] = useState<{
+    connected: boolean;
+    username?: string;
+  } | null>(null);
+  const [showAuthFlow, setShowAuthFlow] = useState(false);
+  const [githubToast, setGithubToast] = useState<{
+    message: string;
+    variant: 'success' | 'error';
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     Promise.all([
       window.syncthis.invoke('app:settings-read', undefined),
       window.syncthis.invoke('app:get-version', undefined),
-    ]).then(([s, v]) => {
+      window.syncthis.invoke('github:status', undefined),
+    ]).then(([s, v, gh]) => {
       if (cancelled) return;
       setSettings(s);
       const { value, unit } = secondsToDisplay(s.defaults.interval);
       setIvValue(value);
       setIvUnit(unit);
       setVersion(v);
+      setGithubStatus(gh);
     });
     return () => {
       cancelled = true;
@@ -500,12 +563,50 @@ function AppSettingsForm() {
 
       {/* GitHub */}
       <p className="settings-section-title">{t('settings.github_title')}</p>
-      <div className="settings-field settings-field--row">
-        <span className="settings-description">{t('settings.github_not_connected')}</span>
-        <Button variant="secondary" size="sm" disabled title="Available in a future update.">
-          {t('settings.github_connect')}
-        </Button>
-      </div>
+      {showAuthFlow ? (
+        <GitHubAuthFlow
+          onSuccess={({ token: _token, username }) => {
+            setGithubStatus({ connected: true, username });
+            setShowAuthFlow(false);
+            setGithubToast({
+              message: t('github.connected_toast', { username }),
+              variant: 'success',
+            });
+          }}
+          onCancel={() => setShowAuthFlow(false)}
+        />
+      ) : githubStatus?.connected ? (
+        <div className="settings-field settings-field--row">
+          <span className="settings-description">
+            {t('settings.github_connected', { username: githubStatus.username ?? '' })}
+          </span>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={async () => {
+              await window.syncthis.invoke('github:disconnect', undefined);
+              setGithubStatus({ connected: false });
+              setGithubToast({ message: t('github.disconnected_toast'), variant: 'success' });
+            }}
+          >
+            {t('settings.github_disconnect')}
+          </Button>
+        </div>
+      ) : (
+        <div className="settings-field settings-field--row">
+          <span className="settings-description">{t('settings.github_not_connected')}</span>
+          <Button variant="secondary" size="sm" onClick={() => setShowAuthFlow(true)}>
+            {t('settings.github_connect')}
+          </Button>
+        </div>
+      )}
+      {githubToast && (
+        <Toast
+          message={githubToast.message}
+          variant={githubToast.variant}
+          onDone={() => setGithubToast(null)}
+        />
+      )}
 
       <Separator />
 

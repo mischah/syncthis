@@ -30,7 +30,7 @@ export function Sidebar() {
   const { state, setActiveFolder, setView } = useAppContext();
 
   function handleAddFolder() {
-    window.syncthis.invoke('app:open-dashboard', undefined);
+    setView('setup');
   }
 
   return (

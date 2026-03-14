@@ -1,4 +1,8 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { access, readFile, rm, writeFile } from 'node:fs/promises';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
 import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
 import type {
@@ -9,7 +13,7 @@ import type {
   LogEntry,
   ServiceStatus,
 } from '@syncthis/shared';
-import { BrowserWindow, app, ipcMain, shell } from 'electron';
+import { BrowserWindow, app, dialog, ipcMain, shell } from 'electron';
 import simpleGit from 'simple-git';
 import { loadConfig, writeConfig } from '../../../cli/src/config.js';
 import { determineHealth } from '../../../cli/src/health-check.js';
@@ -17,10 +21,30 @@ import { createLogger } from '../../../cli/src/logger.js';
 import { runSyncCycle } from '../../../cli/src/sync.js';
 import { loadAppSettings, saveAppSettings } from './app-settings.js';
 import { runCli, startService, stopService } from './cli-bridge.js';
+import {
+  configureRepoCredentialHelper,
+  getCredentialScriptPath,
+  setupCredentials,
+  writeCredentialHelper,
+} from './credentials.js';
 import { readRecentLogs, watchLogFile } from './log-parser.js';
+import {
+  clearToken,
+  createGitHubRepo,
+  fetchUserRepos,
+  loadToken,
+  openDeviceAuthPage,
+  pollOnce,
+  requestDeviceCode,
+} from './oauth.js';
 import { hideDashboard, openDashboard } from './windows.js';
 
 const REGISTRY_PATH = join(homedir(), '.syncthis', 'gui-folders.json');
+
+/** Strip embedded auth credentials from error messages before they reach the renderer. */
+function sanitizeError(message: string): string {
+  return message.replace(/https?:\/\/[^@\s]+@/g, 'https://');
+}
 
 const logWatchers = new Map<string, () => void>();
 
@@ -59,6 +83,7 @@ async function getHealthStatus(dirPath: string): Promise<HealthStatus> {
     consecutiveFailures: result.data?.consecutiveFailures ?? 0,
     syncCycles: result.data?.cycleCount ?? 0,
     serviceRunning: result.processRunning,
+    reasons: result.reasons,
   };
 }
 
@@ -186,6 +211,12 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('folders:remove', async (_, { dirPath }: { dirPath: string }) => {
     await runCli(['uninstall', '--path', dirPath]);
+    // Remove syncthis-specific files so the folder can be re-added later.
+    // .git is intentionally preserved — git history must not be destroyed.
+    await Promise.allSettled([
+      rm(join(dirPath, '.syncthis.json'), { force: true }),
+      rm(join(dirPath, '.syncthis'), { recursive: true, force: true }),
+    ]);
     const paths = await readRegistry();
     await writeRegistry(paths.filter((p) => p !== dirPath));
     broadcastServiceState(dirPath, 'stopped');
@@ -208,6 +239,52 @@ export function registerIpcHandlers(): void {
     app.setLoginItemSettings({ openAtLogin: settings.launchOnLogin });
   });
 
+  ipcMain.handle('github:start-auth', async () => {
+    const deviceCode = await requestDeviceCode();
+    openDeviceAuthPage(deviceCode.verification_uri);
+    return {
+      verificationUri: deviceCode.verification_uri,
+      userCode: deviceCode.user_code,
+      deviceCode: deviceCode.device_code,
+      interval: deviceCode.interval,
+      expiresIn: deviceCode.expires_in,
+    };
+  });
+
+  ipcMain.handle(
+    'github:poll-auth',
+    async (_, { deviceCode }: { deviceCode: string; interval: number }) => {
+      return pollOnce(deviceCode);
+    },
+  );
+
+  ipcMain.handle('github:list-repos', async () => {
+    const token = await loadToken();
+    if (!token) throw new Error('Not authenticated');
+    return fetchUserRepos(token);
+  });
+
+  ipcMain.handle('github:status', async () => {
+    const token = await loadToken();
+    if (!token) return { connected: false };
+    const settings = await loadAppSettings();
+    return { connected: true, username: settings.github.username };
+  });
+
+  ipcMain.handle('github:create-repo', async (_, { name }: { name: string }) => {
+    const token = await loadToken();
+    if (!token) throw new Error('Not authenticated with GitHub');
+    return createGitHubRepo(token, name);
+  });
+
+  ipcMain.handle('github:disconnect', async () => {
+    await clearToken();
+  });
+
+  ipcMain.handle('github:open-auth-page', async (_, { url }: { url: string }): Promise<void> => {
+    await shell.openExternal(url);
+  });
+
   ipcMain.handle('config:read', async (_, { dirPath }: { dirPath: string }) => {
     return loadConfig(dirPath);
   });
@@ -219,6 +296,21 @@ export function registerIpcHandlers(): void {
       { dirPath, config }: { dirPath: string; config: Parameters<typeof writeConfig>[1] },
     ) => {
       await writeConfig(dirPath, config);
+    },
+  );
+
+  ipcMain.handle('gitignore:read', async (_, { dirPath }: { dirPath: string }): Promise<string> => {
+    try {
+      return await readFile(join(dirPath, '.gitignore'), 'utf8');
+    } catch {
+      return '';
+    }
+  });
+
+  ipcMain.handle(
+    'gitignore:write',
+    async (_, { dirPath, content }: { dirPath: string; content: string }): Promise<void> => {
+      await writeFile(join(dirPath, '.gitignore'), content, 'utf8');
     },
   );
 
@@ -242,6 +334,132 @@ export function registerIpcHandlers(): void {
     if (unsubscribe) {
       unsubscribe();
       logWatchers.delete(dirPath);
+    }
+  });
+
+  ipcMain.handle('credentials:setup', async (_, { dirPath }: { dirPath: string }) => {
+    const token = await loadToken();
+    if (!token) throw new Error('Not authenticated with GitHub');
+    await setupCredentials(dirPath, token);
+  });
+
+  ipcMain.handle('app:open-folder-picker', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return result.filePaths[0];
+  });
+
+  ipcMain.handle(
+    'folders:add',
+    async (
+      _,
+      args: {
+        mode: 'clone' | 'existing';
+        repoUrl: string;
+        dirPath: string;
+        interval: number;
+        onConflict: 'auto-both' | 'auto-newest' | 'ask';
+        useOAuth: boolean;
+      },
+    ) => {
+      const expandedPath = args.dirPath.startsWith('~')
+        ? join(homedir(), args.dirPath.slice(1))
+        : args.dirPath;
+
+      // 0. Pre-flight: for existing-folder mode the directory must already exist
+      if (args.mode === 'existing') {
+        try {
+          await access(expandedPath);
+        } catch {
+          throw new Error(
+            `The folder "${basename(expandedPath)}" does not exist. Please choose an existing folder.`,
+          );
+        }
+      }
+
+      // 1. Write credential helper script before clone (file only, no git config yet)
+      if (args.useOAuth) {
+        const token = await loadToken();
+        if (token) {
+          await writeCredentialHelper(expandedPath, token);
+        }
+      }
+
+      // 2. Run syncthis init — embed token in URL for clone so git can authenticate
+      let effectiveUrl = args.repoUrl;
+      if (args.useOAuth && args.mode === 'clone' && args.repoUrl.startsWith('https://')) {
+        const token = await loadToken();
+        if (token) {
+          effectiveUrl = args.repoUrl.replace('https://', `https://x-access-token:${token}@`);
+        }
+      }
+      const initArgs =
+        args.mode === 'clone'
+          ? ['init', '--clone', effectiveUrl, '--path', expandedPath]
+          : ['init', '--remote', args.repoUrl, '--path', expandedPath];
+      const initResult = await runCli(initArgs);
+      if (!initResult.ok) {
+        if (initResult.error.code === 'REMOTE_CONFLICT') {
+          throw new Error(
+            'This folder is already linked to a different repository. ' +
+              'Choose a different folder, or remove the existing Git connection first.',
+          );
+        }
+        throw new Error(sanitizeError(initResult.error.message));
+      }
+
+      // 3. Configure credential helper in git config now that the repo exists
+      if (args.useOAuth) {
+        try {
+          await configureRepoCredentialHelper(expandedPath, getCredentialScriptPath(expandedPath));
+        } catch {
+          // non-fatal: folder is usable without the helper
+        }
+      }
+
+      // 4. Run syncthis start (non-fatal: folder is registered even if start fails)
+      const startResult = await runCli([
+        'start',
+        '--path',
+        expandedPath,
+        '--interval',
+        String(args.interval),
+        '--on-conflict',
+        args.onConflict,
+      ]);
+
+      // 5. Add to GUI folder registry
+      const paths = await readRegistry();
+      if (!paths.includes(expandedPath)) {
+        await writeRegistry([...paths, expandedPath]);
+      }
+
+      // 6. Return summary
+      return {
+        dirPath: expandedPath,
+        name: basename(expandedPath),
+        remote: args.repoUrl,
+        interval: args.interval,
+        serviceStarted: startResult.ok,
+      };
+    },
+  );
+
+  ipcMain.handle('git:validate-remote', async (_, { url }: { url: string }) => {
+    try {
+      let effectiveUrl = url;
+      if (url.startsWith('https://')) {
+        const token = await loadToken();
+        if (token) {
+          effectiveUrl = url.replace('https://', `https://x-access-token:${token}@`);
+        }
+      }
+      await execFileAsync('git', ['ls-remote', effectiveUrl], { timeout: 15000 });
+      return { valid: true };
+    } catch (err) {
+      return { valid: false, message: err instanceof Error ? err.message : String(err) };
     }
   });
 }

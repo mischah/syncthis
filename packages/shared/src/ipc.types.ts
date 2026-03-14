@@ -59,7 +59,23 @@ export interface IpcChannels {
   // Folder management
   'folders:list': { args: undefined; result: FolderSummary[] };
   'folders:detail': { args: { dirPath: string }; result: FolderDetail };
-  'folders:add': { args: never; result: never };
+  'folders:add': {
+    args: {
+      mode: 'clone' | 'existing';
+      repoUrl: string;
+      dirPath: string;
+      interval: number;
+      onConflict: 'auto-both' | 'auto-newest' | 'ask';
+      useOAuth: boolean;
+    };
+    result: {
+      dirPath: string;
+      name: string;
+      remote: string;
+      interval: number;
+      serviceStarted: boolean;
+    };
+  };
   'folders:remove': { args: { dirPath: string }; result: undefined };
 
   // Service management
@@ -76,6 +92,10 @@ export interface IpcChannels {
   'config:read': { args: { dirPath: string }; result: SyncthisConfig };
   'config:write': { args: { dirPath: string; config: SyncthisConfig }; result: undefined };
 
+  // Gitignore
+  'gitignore:read': { args: { dirPath: string }; result: string };
+  'gitignore:write': { args: { dirPath: string; content: string }; result: undefined };
+
   // Health
   'health:status': { args: { dirPath: string }; result: HealthStatus };
   'health:all': { args: undefined; result: HealthStatus[] };
@@ -89,14 +109,55 @@ export interface IpcChannels {
   'conflict:finalize': { args: never; result: never };
 
   // GitHub OAuth
-  'github:start-auth': { args: never; result: never };
-  'github:poll-auth': { args: never; result: never };
-  'github:list-repos': { args: never; result: never };
-  'github:status': { args: never; result: never };
-  'github:disconnect': { args: never; result: never };
+  'github:start-auth': {
+    args: undefined;
+    result: {
+      verificationUri: string;
+      userCode: string;
+      deviceCode: string;
+      interval: number;
+      expiresIn: number;
+    };
+  };
+  'github:poll-auth': {
+    args: { deviceCode: string; interval: number };
+    result:
+      | { status: 'pending'; newInterval?: number }
+      | { status: 'complete'; token: string; username: string }
+      | { status: 'error'; message: string };
+  };
+  'github:list-repos': {
+    args: undefined;
+    result: Array<{
+      name: string;
+      fullName: string;
+      private: boolean;
+      pushedAt: string;
+      cloneUrl: string;
+    }>;
+  };
+  'github:create-repo': {
+    args: { name: string };
+    result: {
+      name: string;
+      fullName: string;
+      private: boolean;
+      pushedAt: string;
+      cloneUrl: string;
+    };
+  };
+  'github:status': { args: undefined; result: { connected: boolean; username?: string } };
+  'github:disconnect': { args: undefined; result: undefined };
+  'github:open-auth-page': { args: { url: string }; result: undefined };
+
+  // Credentials
+  'credentials:setup': { args: { dirPath: string }; result: undefined };
+
+  // Git
+  'git:validate-remote': { args: { url: string }; result: { valid: boolean; message?: string } };
 
   // App
-  'app:open-folder-picker': { args: never; result: never };
+  'app:open-folder-picker': { args: undefined; result: string | null };
   'app:reveal-in-file-manager': { args: { dirPath: string }; result: undefined };
   'app:check-update': { args: never; result: never };
   'app:get-version': { args: undefined; result: string };

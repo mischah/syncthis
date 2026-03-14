@@ -3,9 +3,10 @@ import { Sidebar } from './components/Sidebar';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { DetailView } from './views/DetailView';
 import { Settings } from './views/Settings';
+import { SetupWizard } from './views/SetupWizard';
 import './styles/index.css';
 
-type ViewName = 'detail' | 'settings';
+type ViewName = 'detail' | 'settings' | 'setup';
 
 function ViewTransition({ view, folderPath }: { view: ViewName; folderPath: string | null }) {
   const [rendered, setRendered] = useState<ViewName>(view);
@@ -16,7 +17,7 @@ function ViewTransition({ view, folderPath }: { view: ViewName; folderPath: stri
   useEffect(() => {
     // View change: slide
     if (view !== prevView.current) {
-      const direction = view === 'settings' ? 'slide-left' : 'slide-right';
+      const direction = view === 'settings' || view === 'setup' ? 'slide-left' : 'slide-right';
       setAnimClass(`view-exit-${direction}`);
       const timer = setTimeout(() => {
         setRendered(view);
@@ -47,13 +48,14 @@ function ViewTransition({ view, folderPath }: { view: ViewName; folderPath: stri
     <div className={`view-transition ${animClass}`}>
       {rendered === 'detail' && <DetailView />}
       {rendered === 'settings' && <Settings />}
+      {rendered === 'setup' && <SetupWizard />}
     </div>
   );
 }
 
 function AppLayout() {
   const { state, setView, setActiveFolder } = useAppContext();
-  const showSidebar = state.folders.length >= 2;
+  const showSidebar = state.folders.length >= 2 && state.view !== 'setup';
   const stateRef = useRef(state);
   stateRef.current = state;
 
@@ -110,7 +112,9 @@ function AppLayout() {
   }, [setView, setActiveFolder]);
 
   const viewName: ViewName =
-    state.view === 'detail' || state.view === 'settings' ? state.view : 'detail';
+    state.view === 'detail' || state.view === 'settings' || state.view === 'setup'
+      ? state.view
+      : 'detail';
 
   return (
     <div className="app-layout">

@@ -128,6 +128,23 @@
   font-family: var(--font-mono);
 }
 
+.settings-textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.settings-link-button {
+  all: unset;
+  cursor: pointer;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.settings-link-button:hover {
+  opacity: 0.75;
+}
+
 .settings-input--narrow {
   width: 64px;
   text-align: right;
@@ -285,5 +302,67 @@
 .settings-interval-row {
   display: flex;
   align-items: center;
+  gap: var(--space-2);
+}
+
+/* GitHub auth flow */
+
+.github-auth-loading {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-4) 0;
+}
+
+.github-auth-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-default);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: github-spin 0.7s linear infinite;
+}
+
+@keyframes github-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.github-auth-flow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.github-auth-code {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.github-auth-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.github-auth-waiting {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.github-auth-error {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.github-auth-error-actions {
+  display: flex;
   gap: var(--space-2);
 }

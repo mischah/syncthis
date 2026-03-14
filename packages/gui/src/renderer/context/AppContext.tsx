@@ -39,11 +39,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
         prev.activeFolderPath && folders.some((f) => f.dirPath === prev.activeFolderPath)
           ? prev.activeFolderPath
           : (folders[0]?.dirPath ?? null),
+      // When the last folder is removed, return to the setup wizard
+      view: folders.length === 0 ? 'setup' : prev.view,
     }));
   }, []);
 
   useEffect(() => {
-    refreshFolders();
+    // Initial load: navigate to setup wizard if no folders registered yet
+    void (async () => {
+      const folders = await window.syncthis.invoke('folders:list', undefined);
+      setState((prev) => ({
+        ...prev,
+        folders,
+        activeFolderPath: folders[0]?.dirPath ?? null,
+        view: folders.length === 0 ? 'setup' : prev.view,
+      }));
+    })();
 
     const interval = setInterval(async () => {
       const healths = await window.syncthis.invoke('health:all', undefined);
