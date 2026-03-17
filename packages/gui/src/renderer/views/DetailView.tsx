@@ -2,6 +2,7 @@ import type { FolderDetail } from '@syncthis/shared';
 import {
   Folder,
   FolderPlus,
+  GitMerge,
   Pause,
   Play,
   RefreshDouble,
@@ -123,6 +124,7 @@ export function DetailView() {
   const liveFolder = state.folders.find((f) => f.dirPath === state.activeFolderPath);
   const health = liveFolder?.health ?? detail.health;
   const isRunning = health.serviceRunning;
+  const conflictDetected = liveFolder?.conflictDetected ?? false;
 
   async function handleSyncNow() {
     if (!state.activeFolderPath) return;
@@ -188,15 +190,13 @@ export function DetailView() {
   const remoteShort = shortenRemoteUrl(config.remote);
 
   function statusDescription(): string {
+    if (health.lastSync) {
+      return t('status.synced', { time: formatRelativeTime(health.lastSync) });
+    }
     if (!isRunning) {
-      return health.lastSync
-        ? t('status.synced', { time: formatRelativeTime(health.lastSync) })
-        : t('status.never_synced');
+      return t('status.never_synced');
     }
-    if (health.consecutiveFailures > 0) {
-      return t('status.failures', { n: health.consecutiveFailures });
-    }
-    return health.lastSync ? t('status.synced', { time: formatRelativeTime(health.lastSync) }) : '';
+    return '';
   }
 
   const statusDesc = statusDescription();
@@ -230,7 +230,9 @@ export function DetailView() {
 
         <div className="detail-status">
           <div className="detail-status-row">
-            {isRunning ? (
+            {conflictDetected ? (
+              <Badge variant="destructive">{t('status.conflict')}</Badge>
+            ) : isRunning ? (
               <StatusBadge level={health.level} />
             ) : (
               <Badge
@@ -243,9 +245,22 @@ export function DetailView() {
                 {t('status.stopped')}
               </Badge>
             )}
-            {statusDesc && <span className="detail-sync-time">{statusDesc}</span>}
+            {!conflictDetected && statusDesc && (
+              <span className="detail-sync-time">{statusDesc}</span>
+            )}
+            {conflictDetected && (
+              <Button
+                variant="default"
+                size="xs"
+                style={{ marginLeft: 'auto' }}
+                onClick={() => setView('conflict')}
+              >
+                <GitMerge width={14} height={14} />
+                &nbsp;{t('action.resolve')}
+              </Button>
+            )}
           </div>
-          {health.level !== 'healthy' && health.reasons.length > 0 && (
+          {!conflictDetected && health.level !== 'healthy' && health.reasons.length > 0 && (
             <ul className="detail-status-reasons">
               {health.reasons.map((r) => (
                 <li key={r}>{r}</li>
@@ -298,13 +313,18 @@ export function DetailView() {
 
         <div className="detail-actions">
           {isRunning ? (
-            <Button variant="secondary" size="sm" onClick={handleStop}>
+            <Button variant="secondary" size="sm" disabled={conflictDetected} onClick={handleStop}>
               <Pause width={16} height={16} />
               &nbsp;
               {t('action.stop')}
             </Button>
           ) : (
-            <Button variant="secondary" size="sm" disabled={starting} onClick={handleStart}>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={starting || conflictDetected}
+              onClick={handleStart}
+            >
               <Play width={16} height={16} />
               &nbsp;
               {t('action.start')}
@@ -313,7 +333,7 @@ export function DetailView() {
           <Button
             variant="secondary"
             size="sm"
-            disabled={syncing || !isRunning}
+            disabled={syncing || !isRunning || conflictDetected}
             onClick={handleSyncNow}
           >
             <RefreshDouble width={12} height={12} />

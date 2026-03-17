@@ -2,6 +2,46 @@ import type { SyncthisConfig } from './config.types.js';
 import type { HealthStatus, ServiceStatus } from './health.types.js';
 import type { JsonOutput } from './json-output.types.js';
 
+export interface ConflictFile {
+  filePath: string;
+  status: 'pending' | 'resolved';
+}
+
+export interface DiffChange {
+  type: 'added' | 'removed' | 'unchanged';
+  value: string;
+}
+
+export interface DiffLine {
+  type: 'context' | 'local' | 'remote';
+  text: string;
+}
+
+export interface DiffHunk {
+  index: number;
+  startLine: number;
+  localLines: string[];
+  remoteLines: string[];
+  changes: DiffChange[];
+  lines: DiffLine[];
+}
+
+export interface ImageData {
+  mimeType: string;
+  localDataUrl: string;
+  remoteDataUrl: string;
+  localSize: number;
+  remoteSize: number;
+}
+
+export interface FileDiff {
+  filePath: string;
+  hunks: DiffHunk[];
+  sourceLines: string[];
+  isBinary?: boolean;
+  imageData?: ImageData;
+}
+
 export interface AppSettings {
   launchOnLogin: boolean;
   defaults: {
@@ -37,6 +77,7 @@ export interface FolderSummary {
   name: string;
   health: HealthStatus;
   serviceStatus: ServiceStatus;
+  conflictDetected: boolean;
 }
 
 export interface LastCommitInfo {
@@ -101,12 +142,19 @@ export interface IpcChannels {
   'health:all': { args: undefined; result: HealthStatus[] };
 
   // Conflict resolution
-  'conflict:list-files': { args: never; result: never };
-  'conflict:get-diff': { args: never; result: never };
-  'conflict:resolve-file': { args: never; result: never };
-  'conflict:resolve-hunk': { args: never; result: never };
-  'conflict:abort': { args: never; result: never };
-  'conflict:finalize': { args: never; result: never };
+  'conflict:check': { args: { dirPath: string }; result: boolean };
+  'conflict:list-files': { args: { dirPath: string }; result: ConflictFile[] };
+  'conflict:get-diff': { args: { dirPath: string; filePath: string }; result: FileDiff };
+  'conflict:resolve-file': {
+    args: { dirPath: string; filePath: string; choice: 'local' | 'remote' | 'both' };
+    result: undefined;
+  };
+  'conflict:resolve-hunks': {
+    args: { dirPath: string; filePath: string; decisions: Array<'local' | 'remote'> };
+    result: undefined;
+  };
+  'conflict:abort': { args: { dirPath: string }; result: undefined };
+  'conflict:finalize': { args: { dirPath: string }; result: undefined };
 
   // GitHub OAuth
   'github:start-auth': {
@@ -161,7 +209,10 @@ export interface IpcChannels {
   'app:reveal-in-file-manager': { args: { dirPath: string }; result: undefined };
   'app:check-update': { args: never; result: never };
   'app:get-version': { args: undefined; result: string };
-  'app:open-dashboard': { args: { view?: string } | undefined; result: undefined };
+  'app:open-dashboard': {
+    args: { view?: string; activeFolderPath?: string } | undefined;
+    result: undefined;
+  };
   'app:hide-dashboard': { args: undefined; result: undefined };
   'app:quit': { args: undefined; result: undefined };
   'app:resize-popover': { args: { height: number }; result: undefined };
@@ -178,5 +229,6 @@ export interface IpcEvents {
   'health:changed': HealthStatus;
   'service:state-changed': { dirPath: string; status: ServiceStatus };
   'logs:line': { dirPath: string; entry: LogEntry };
-  'app:navigate': { view: string };
+  'app:navigate': { view: string; activeFolderPath?: string };
+  'conflict:detected': { dirPath: string };
 }

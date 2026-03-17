@@ -36,7 +36,7 @@ function createDashboardWindow(): BrowserWindow {
   return win;
 }
 
-export function showDashboard(view?: string): void {
+export function showDashboard(view?: string, activeFolderPath?: string): void {
   if (!dashboardWindow || dashboardWindow.isDestroyed()) {
     dashboardWindow = createDashboardWindow();
   }
@@ -44,7 +44,9 @@ export function showDashboard(view?: string): void {
   dashboardWindow.focus();
   if (process.platform === 'darwin') app.dock.show();
   if (view) {
-    const send = () => dashboardWindow?.webContents.send('app:navigate', { view });
+    const payload: { view: string; activeFolderPath?: string } = { view };
+    if (activeFolderPath) payload.activeFolderPath = activeFolderPath;
+    const send = () => dashboardWindow?.webContents.send('app:navigate', payload);
     if (dashboardWindow.webContents.isLoading()) {
       dashboardWindow.webContents.once('did-finish-load', send);
     } else {

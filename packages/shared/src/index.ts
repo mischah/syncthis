@@ -10,4 +10,10 @@ export type {
   IpcEvents,
   LogEntry,
   LogEntryType,
+  ConflictFile,
+  DiffChange,
+  DiffHunk,
+  DiffLine,
+  FileDiff,
+  ImageData,
 } from './ipc.types.js';

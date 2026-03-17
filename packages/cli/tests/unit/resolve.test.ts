@@ -32,6 +32,23 @@ vi.mock('../../src/conflict/interactive.js', () => ({
 const { mockAccess } = vi.hoisted(() => ({ mockAccess: vi.fn() }));
 vi.mock('node:fs/promises', () => ({ access: mockAccess }));
 
+const mockLogger = vi.hoisted(() => ({
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+}));
+vi.mock('../../src/logger.js', () => ({ createLogger: vi.fn(() => mockLogger) }));
+
+const { mockReadHealthFile, mockWriteHealthFile } = vi.hoisted(() => ({
+  mockReadHealthFile: vi.fn(),
+  mockWriteHealthFile: vi.fn(),
+}));
+vi.mock('../../src/health.js', () => ({
+  readHealthFile: mockReadHealthFile,
+  writeHealthFile: mockWriteHealthFile,
+}));
+
 // ---------------------------------------------------------------------------
 // Shared fixtures
 // ---------------------------------------------------------------------------
@@ -71,6 +88,8 @@ beforeEach(() => {
   mockResolveInteractive.mockResolvedValue(RESOLVED_RESULT);
   mockGit.raw.mockResolvedValue(undefined);
   mockGit.push.mockResolvedValue(undefined);
+  mockReadHealthFile.mockResolvedValue(null);
+  mockWriteHealthFile.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -152,15 +171,13 @@ describe('handleResolve – successful resolution', () => {
   });
 
   it('shows success message after push', async () => {
-    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     mockGetConflictFiles
       .mockResolvedValueOnce([{ filePath: 'file1.md' }])
       .mockResolvedValueOnce([]);
 
     await handleResolve({ path: '/repo' });
 
-    expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('pushed to origin'));
-    consoleLogSpy.mockRestore();
+    expect(mockLogger.info).toHaveBeenCalledWith(expect.stringContaining('pushed to origin'));
   });
 });
 
@@ -184,7 +201,6 @@ describe('handleResolve – cascading rebase', () => {
 
 describe('handleResolve – push failure', () => {
   it('push fails → warning logged, no crash', async () => {
-    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     mockGetConflictFiles
       .mockResolvedValueOnce([{ filePath: 'file1.md' }])
       .mockResolvedValueOnce([]);
@@ -192,9 +208,8 @@ describe('handleResolve – push failure', () => {
 
     await handleResolve({ path: '/repo' });
 
-    expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining('push failed'));
+    expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('push failed'));
     expect(mockExit).not.toHaveBeenCalled();
-    consoleWarnSpy.mockRestore();
   });
 });
 

@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { AppProvider, useAppContext } from './context/AppContext';
+import { ConflictResolution } from './views/ConflictResolution';
 import { DetailView } from './views/DetailView';
 import { Settings } from './views/Settings';
 import { SetupWizard } from './views/SetupWizard';
 import './styles/index.css';
 
-type ViewName = 'detail' | 'settings' | 'setup';
+type ViewName = 'detail' | 'settings' | 'setup' | 'conflict';
 
 function ViewTransition({ view, folderPath }: { view: ViewName; folderPath: string | null }) {
   const [rendered, setRendered] = useState<ViewName>(view);
@@ -17,7 +18,10 @@ function ViewTransition({ view, folderPath }: { view: ViewName; folderPath: stri
   useEffect(() => {
     // View change: slide
     if (view !== prevView.current) {
-      const direction = view === 'settings' || view === 'setup' ? 'slide-left' : 'slide-right';
+      const direction =
+        view === 'settings' || view === 'setup' || view === 'conflict'
+          ? 'slide-left'
+          : 'slide-right';
       setAnimClass(`view-exit-${direction}`);
       const timer = setTimeout(() => {
         setRendered(view);
@@ -49,6 +53,7 @@ function ViewTransition({ view, folderPath }: { view: ViewName; folderPath: stri
       {rendered === 'detail' && <DetailView />}
       {rendered === 'settings' && <Settings />}
       {rendered === 'setup' && <SetupWizard />}
+      {rendered === 'conflict' && <ConflictResolution />}
     </div>
   );
 }
@@ -112,7 +117,10 @@ function AppLayout() {
   }, [setView, setActiveFolder]);
 
   const viewName: ViewName =
-    state.view === 'detail' || state.view === 'settings' || state.view === 'setup'
+    state.view === 'detail' ||
+    state.view === 'settings' ||
+    state.view === 'setup' ||
+    state.view === 'conflict'
       ? state.view
       : 'detail';
 

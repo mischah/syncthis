@@ -2,8 +2,21 @@ import { CheckCircle, Plus, WarningTriangle, XmarkCircle } from 'iconoir-react';
 import { useAppContext } from '../context/AppContext';
 import { t } from '../i18n';
 
-function HealthIcon({ level, serviceRunning }: { level: string; serviceRunning: boolean }) {
+function HealthIcon({
+  level,
+  serviceRunning,
+  conflictDetected,
+}: {
+  level: string;
+  serviceRunning: boolean;
+  conflictDetected: boolean;
+}) {
   const style = { flexShrink: 0 } as const;
+  if (conflictDetected) {
+    return (
+      <WarningTriangle width={16} height={16} style={{ ...style, color: 'var(--status-error)' }} />
+    );
+  }
   if (!serviceRunning) {
     return (
       <XmarkCircle width={16} height={16} style={{ ...style, color: 'var(--text-secondary)' }} />
@@ -49,7 +62,11 @@ export function Sidebar() {
               if (state.view !== 'detail') setView('detail');
             }}
           >
-            <HealthIcon level={folder.health.level} serviceRunning={folder.health.serviceRunning} />
+            <HealthIcon
+              level={folder.health.level}
+              serviceRunning={folder.health.serviceRunning}
+              conflictDetected={folder.conflictDetected}
+            />
             <span className="sidebar-folder-name">{folder.name}</span>
           </button>
         ))}

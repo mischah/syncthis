@@ -1,5 +1,5 @@
 import type { FolderSummary } from '@syncthis/shared';
-import { AppWindow, Plus, RefreshDouble, Settings } from 'iconoir-react';
+import { AppWindow, Plus, RefreshDouble, Settings, WarningTriangle } from 'iconoir-react';
 import { useEffect, useRef, useState } from 'react';
 import { t } from '../renderer/i18n/index.js';
 import { shortenPath } from '../renderer/lib/format-remote.js';
@@ -18,6 +18,7 @@ function formatRelativeTime(isoString: string | null): string {
 }
 
 function statusDotColor(folder: FolderSummary): string {
+  if (folder.conflictDetected) return 'var(--status-error)';
   if (!folder.health.serviceRunning) return 'var(--text-secondary)';
   if (folder.health.level === 'healthy') return 'var(--status-healthy)';
   if (folder.health.level === 'degraded') return 'var(--status-warning)';
@@ -38,37 +39,73 @@ function FolderRow({ folder }: { folder: FolderSummary }) {
   }
 
   function handleRowClick() {
-    window.syncthis.invoke('app:open-dashboard', undefined);
+    window.syncthis.invoke('app:open-dashboard', {
+      view: 'detail',
+      activeFolderPath: folder.dirPath,
+    });
+  }
+
+  function handleConflictBanner() {
+    window.syncthis.invoke('app:open-dashboard', {
+      view: 'conflict',
+      activeFolderPath: folder.dirPath,
+    });
   }
 
   const dotColor = statusDotColor(folder);
-  const syncDisabled = syncing || !folder.health.serviceRunning;
+  const syncDisabled = syncing || !folder.health.serviceRunning || folder.conflictDetected;
 
   return (
-    <div className="folder-row">
-      <button type="button" className="folder-row-content" onClick={handleRowClick}>
-        <div className="folder-row-name">
-          <span className="status-dot" style={{ backgroundColor: dotColor }} />
-          <span className="folder-name">{folder.name}</span>
-        </div>
-        <div className="folder-path">{shortenPath(folder.dirPath)}</div>
-      </button>
-      <span
-        className={`folder-sync-time${!folder.health.serviceRunning ? ' folder-sync-time--stopped' : ''}`}
-      >
-        {formatRelativeTime(folder.health.lastSync)}
-      </span>
-      <button
-        type="button"
-        className="sync-btn"
-        onClick={handleSyncNow}
-        disabled={syncDisabled}
-        title={t('action.sync_now')}
-      >
-        <RefreshDouble width={16} height={16} />
-      </button>
+    <div className="folder-item">
+      <div className="folder-row">
+        <button type="button" className="folder-row-content" onClick={handleRowClick}>
+          <div className="folder-row-name">
+            <span className="status-dot" style={{ backgroundColor: dotColor }} />
+            <span className="folder-name">{folder.name}</span>
+          </div>
+          <div className="folder-path">{shortenPath(folder.dirPath)}</div>
+        </button>
+        {folder.conflictDetected ? (
+          <span className="folder-conflict-label">
+            <WarningTriangle width={12} height={12} />
+            {t('status.conflict')}
+          </span>
+        ) : (
+          <span
+            className={`folder-sync-time${!folder.health.serviceRunning ? ' folder-sync-time--stopped' : ''}`}
+          >
+            {formatRelativeTime(folder.health.lastSync)}
+          </span>
+        )}
+        <button
+          type="button"
+          className="sync-btn"
+          onClick={handleSyncNow}
+          disabled={syncDisabled}
+          title={t('action.sync_now')}
+        >
+          <RefreshDouble width={16} height={16} />
+        </button>
+      </div>
+      {folder.conflictDetected && (
+        <button type="button" className="conflict-banner" onClick={handleConflictBanner}>
+          {t('conflict.banner', { count: 1 })}
+        </button>
+      )}
     </div>
   );
+}
+
+function folderPriority(folder: FolderSummary): number {
+  if (folder.conflictDetected) return 0;
+  if (!folder.health.serviceRunning) return 4;
+  if (folder.health.level === 'unhealthy') return 1;
+  if (folder.health.level === 'degraded') return 2;
+  return 3; // healthy
+}
+
+function sortFolders(a: FolderSummary, b: FolderSummary): number {
+  return folderPriority(a) - folderPriority(b);
 }
 
 export function Popover() {
@@ -79,14 +116,7 @@ export function Popover() {
     window.syncthis.invoke('folders:list', undefined).then(setFolders);
 
     const interval = setInterval(() => {
-      window.syncthis.invoke('health:all', undefined).then((healths) => {
-        setFolders((prev) =>
-          prev.map((f) => {
-            const h = healths.find((hh) => hh.dirPath === f.dirPath);
-            return h ? { ...f, health: h } : f;
-          }),
-        );
-      });
+      window.syncthis.invoke('folders:list', undefined).then(setFolders);
     }, 10000);
 
     const unsubService = window.syncthis.on('service:state-changed', () => {
@@ -99,10 +129,17 @@ export function Popover() {
       );
     });
 
+    const unsubConflict = window.syncthis.on('conflict:detected', ({ dirPath }) => {
+      setFolders((prev) =>
+        prev.map((f) => (f.dirPath === dirPath ? { ...f, conflictDetected: true } : f)),
+      );
+    });
+
     return () => {
       clearInterval(interval);
       unsubService();
       unsubHealth();
+      unsubConflict();
     };
   }, []);
 
@@ -141,7 +178,7 @@ export function Popover() {
         </div>
       ) : (
         <div className="popover-list">
-          {folders.map((folder) => (
+          {[...folders].sort(sortFolders).map((folder) => (
             <FolderRow key={folder.dirPath} folder={folder} />
           ))}
         </div>

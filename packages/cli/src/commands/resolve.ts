@@ -1,10 +1,11 @@
 import { access } from 'node:fs/promises';
 import { join } from 'node:path';
-import chalk from 'chalk';
 import simpleGit from 'simple-git';
 import { loadConfig } from '../config.js';
 import { resolveInteractive } from '../conflict/interactive.js';
 import { getConflictFiles, isRebaseInProgress } from '../conflict/resolver.js';
+import { readHealthFile, writeHealthFile } from '../health.js';
+import { createLogger } from '../logger.js';
 import type { Logger } from '../logger.js';
 
 export interface ResolveOptions {
@@ -25,13 +26,9 @@ export async function handleResolve(options: ResolveOptions): Promise<void> {
 
   const config = await loadConfig(dirPath);
   const git = simpleGit(dirPath);
+  const logDir = join(dirPath, '.syncthis', 'logs');
 
-  const logger: Logger = {
-    debug: () => {},
-    info: (msg: string) => console.log(msg),
-    warn: (msg: string) => console.warn(msg),
-    error: (msg: string) => console.error(msg),
-  };
+  const logger: Logger = createLogger({ level: 'info', logDir });
 
   const rebaseInProgress = await isRebaseInProgress(git);
   if (!rebaseInProgress) {
@@ -84,12 +81,22 @@ export async function handleResolve(options: ResolveOptions): Promise<void> {
 
   try {
     await git.push('origin', config.branch);
-    console.log(
-      `${chalk.green('✓')} All conflicts resolved. ${totalResolved} files resolved, pushed to origin.`,
-    );
+    logger.info(`Conflicts resolved: ${totalResolved} files resolved, pushed to origin.`);
   } catch (err) {
-    console.warn(
-      `Warning: Conflicts resolved but push failed: ${String(err)}. Will retry on next sync cycle.`,
+    logger.warn(
+      `Conflicts resolved but push failed: ${String(err)}. Will retry on next sync cycle.`,
     );
+  }
+
+  // Reset health: clear consecutive failures and update lastSyncAt
+  const existing = await readHealthFile(dirPath);
+  if (existing) {
+    await writeHealthFile(dirPath, {
+      ...existing,
+      lastSyncAt: new Date().toISOString(),
+      lastSyncResult: 'synced',
+      consecutiveFailures: 0,
+      lastSuccessAt: new Date().toISOString(),
+    });
   }
 }

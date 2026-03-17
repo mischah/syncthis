@@ -1,0 +1,75 @@
+.diff-view {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 400px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-default);
+}
+
+/* ── Legend ── */
+
+.diff-legend {
+  display: flex;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  position: sticky;
+  top: 0;
+  background: var(--bg-secondary);
+  z-index: 1;
+}
+
+.diff-legend-local::before,
+.diff-legend-remote::before {
+  content: "■";
+  margin-right: 6px;
+}
+
+.diff-legend-local::before {
+  color: var(--status-error);
+}
+
+.diff-legend-remote::before {
+  color: var(--status-healthy);
+}
+
+/* ── Hunk header ── */
+
+.diff-hunk-header {
+  padding: var(--space-1) var(--space-3);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/* ── Lines ── */
+
+.diff-line {
+  padding: 0 var(--space-3);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.diff-line-context {
+  color: var(--text-tertiary);
+}
+
+.diff-line-local {
+  background: var(--status-error-bg);
+  text-decoration: line-through;
+  text-decoration-color: var(--status-error);
+  color: var(--status-error);
+}
+
+.diff-line-remote {
+  background: var(--status-healthy-bg);
+  color: var(--status-healthy);
+}

@@ -51,20 +51,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setState((prev) => ({
         ...prev,
         folders,
-        activeFolderPath: folders[0]?.dirPath ?? null,
+        activeFolderPath:
+          prev.activeFolderPath && folders.some((f) => f.dirPath === prev.activeFolderPath)
+            ? prev.activeFolderPath
+            : (folders[0]?.dirPath ?? null),
         view: folders.length === 0 ? 'setup' : prev.view,
       }));
     })();
 
-    const interval = setInterval(async () => {
-      const healths = await window.syncthis.invoke('health:all', undefined);
-      setState((prev) => ({
-        ...prev,
-        folders: prev.folders.map((f) => {
-          const h = healths.find((hh) => hh.dirPath === f.dirPath);
-          return h ? { ...f, health: h } : f;
-        }),
-      }));
+    const interval = setInterval(() => {
+      void refreshFolders();
     }, 10000);
 
     const unsubHealth = window.syncthis.on('health:changed', (data) => {
@@ -78,8 +74,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       refreshFolders();
     });
 
-    const unsubNavigate = window.syncthis.on('app:navigate', ({ view }) => {
-      setState((prev) => ({ ...prev, view: view as AppState['view'] }));
+    const unsubNavigate = window.syncthis.on('app:navigate', ({ view, activeFolderPath }) => {
+      setState((prev) => ({
+        ...prev,
+        view: view as AppState['view'],
+        ...(activeFolderPath ? { activeFolderPath } : {}),
+      }));
+    });
+
+    const unsubConflict = window.syncthis.on('conflict:detected', () => {
+      refreshFolders();
     });
 
     return () => {
@@ -87,6 +91,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       unsubHealth();
       unsubService();
       unsubNavigate();
+      unsubConflict();
     };
   }, [refreshFolders]);
 

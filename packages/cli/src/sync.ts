@@ -30,6 +30,7 @@ export async function runSyncCycle(
   dirPath: string,
   config: SyncthisConfig,
   logger: Logger,
+  options?: { forceNonInteractive?: boolean },
 ): Promise<SyncResult> {
   const git = simpleGit(dirPath);
 
@@ -88,7 +89,7 @@ export async function runSyncCycle(
       }
 
       if (config.onConflict === 'ask') {
-        const isInteractive = process.stdin.isTTY === true;
+        const isInteractive = !options?.forceNonInteractive && process.stdin.isTTY === true;
 
         if (!isInteractive) {
           logger.error(

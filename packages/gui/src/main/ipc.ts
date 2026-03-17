@@ -13,7 +13,7 @@ import type {
   LogEntry,
   ServiceStatus,
 } from '@syncthis/shared';
-import { BrowserWindow, app, dialog, ipcMain, shell } from 'electron';
+import { BrowserWindow, Notification, app, dialog, ipcMain, shell } from 'electron';
 import simpleGit from 'simple-git';
 import { loadConfig, writeConfig } from '../../../cli/src/config.js';
 import { determineHealth } from '../../../cli/src/health-check.js';
@@ -21,6 +21,15 @@ import { createLogger } from '../../../cli/src/logger.js';
 import { runSyncCycle } from '../../../cli/src/sync.js';
 import { loadAppSettings, saveAppSettings } from './app-settings.js';
 import { runCli, startService, stopService } from './cli-bridge.js';
+import {
+  abortRebase,
+  finalizeRebase,
+  getConflictingFiles,
+  getFileDiff,
+  isRebaseInProgress,
+  resolveFile as resolveConflictFile,
+  resolveHunks,
+} from './conflict.js';
 import {
   configureRepoCredentialHelper,
   getCredentialScriptPath,
@@ -37,6 +46,7 @@ import {
   pollOnce,
   requestDeviceCode,
 } from './oauth.js';
+import { updateTrayIcon } from './tray.js';
 import { hideDashboard, openDashboard } from './windows.js';
 
 const REGISTRY_PATH = join(homedir(), '.syncthis', 'gui-folders.json');
@@ -47,6 +57,38 @@ function sanitizeError(message: string): string {
 }
 
 const logWatchers = new Map<string, () => void>();
+const previousConflictState = new Map<string, boolean>();
+const activeNotifications = new Set<Electron.Notification>();
+
+function broadcastConflictDetected(dirPath: string): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    win.webContents.send('conflict:detected', { dirPath });
+  }
+}
+
+async function showConflictNotification(dirPath: string): Promise<void> {
+  try {
+    const config = await loadConfig(dirPath);
+    if (config.notify === false) return;
+    const files = await getConflictingFiles(dirPath).catch(() => []);
+    const fileCount = files.length || 1;
+    const notification = new Notification({
+      title: `Conflict in ${basename(dirPath)}`,
+      body: `${fileCount} file${fileCount > 1 ? 's have' : ' has'} conflicting changes. Click to resolve.`,
+    });
+    activeNotifications.add(notification);
+    notification.on('click', () => {
+      openDashboard('conflict', dirPath);
+      activeNotifications.delete(notification);
+    });
+    notification.on('close', () => {
+      activeNotifications.delete(notification);
+    });
+    notification.show();
+  } catch {
+    // non-fatal
+  }
+}
 
 function broadcastLogLine(dirPath: string, entry: LogEntry): void {
   for (const win of BrowserWindow.getAllWindows()) {
@@ -96,18 +138,37 @@ export function registerIpcHandlers(): void {
     const paths = await readRegistry();
     const results = await Promise.allSettled(
       paths.map(async (dirPath): Promise<FolderSummary> => {
-        const health = await getHealthStatus(dirPath);
+        const [health, conflictDetected] = await Promise.all([
+          getHealthStatus(dirPath),
+          isRebaseInProgress(dirPath).catch(() => false),
+        ]);
+        const prev = previousConflictState.get(dirPath) ?? false;
+        if (conflictDetected && !prev) {
+          broadcastConflictDetected(dirPath);
+          void showConflictNotification(dirPath);
+        }
+        previousConflictState.set(dirPath, conflictDetected);
         return {
           dirPath,
           name: basename(dirPath),
           health,
           serviceStatus: toServiceStatus(health.serviceRunning),
+          conflictDetected,
         };
       }),
     );
-    return results
+    const summaries = results
       .filter((r): r is PromiseFulfilledResult<FolderSummary> => r.status === 'fulfilled')
       .map((r) => r.value);
+
+    const trayState = summaries.some((s) => s.conflictDetected || s.health.level === 'unhealthy')
+      ? 'error'
+      : summaries.some((s) => s.health.level === 'degraded')
+        ? 'warning'
+        : 'idle';
+    updateTrayIcon(trayState);
+
+    return summaries;
   });
 
   ipcMain.handle(
@@ -182,8 +243,8 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('service:sync-now', async (_, { dirPath }: { dirPath: string }) => {
     const config = await loadConfig(dirPath);
-    const logger = createLogger({ level: 'debug', logDir: join(dirPath, '.syncthis') });
-    await runSyncCycle(dirPath, config, logger);
+    const logger = createLogger({ level: 'debug', logDir: join(dirPath, '.syncthis', 'logs') });
+    await runSyncCycle(dirPath, config, logger, { forceNonInteractive: true });
   });
 
   ipcMain.handle('app:get-version', (): string => {
@@ -197,9 +258,12 @@ export function registerIpcHandlers(): void {
     },
   );
 
-  ipcMain.handle('app:open-dashboard', (_, args?: { view?: string }): void => {
-    openDashboard(args?.view);
-  });
+  ipcMain.handle(
+    'app:open-dashboard',
+    (_, args?: { view?: string; activeFolderPath?: string }): void => {
+      openDashboard(args?.view, args?.activeFolderPath);
+    },
+  );
 
   ipcMain.handle('app:hide-dashboard', (): void => {
     hideDashboard();
@@ -225,7 +289,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('app:resize-popover', (event, { height }: { height: number }): void => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (win) {
-      win.setSize(360, Math.min(Math.max(height, 80), 520));
+      win.setSize(360, Math.min(Math.max(height, 80), 640));
       if (win.getOpacity() < 1) win.setOpacity(1);
     }
   });
@@ -446,6 +510,57 @@ export function registerIpcHandlers(): void {
       };
     },
   );
+
+  ipcMain.handle('conflict:check', async (_, { dirPath }: { dirPath: string }) => {
+    return isRebaseInProgress(dirPath).catch(() => false);
+  });
+
+  ipcMain.handle('conflict:list-files', async (_, { dirPath }: { dirPath: string }) => {
+    return getConflictingFiles(dirPath);
+  });
+
+  ipcMain.handle(
+    'conflict:get-diff',
+    async (_, { dirPath, filePath }: { dirPath: string; filePath: string }) => {
+      return getFileDiff(dirPath, filePath);
+    },
+  );
+
+  ipcMain.handle(
+    'conflict:resolve-file',
+    async (
+      _,
+      {
+        dirPath,
+        filePath,
+        choice,
+      }: { dirPath: string; filePath: string; choice: 'local' | 'remote' | 'both' },
+    ) => {
+      await resolveConflictFile(dirPath, filePath, choice);
+    },
+  );
+
+  ipcMain.handle(
+    'conflict:resolve-hunks',
+    async (
+      _,
+      {
+        dirPath,
+        filePath,
+        decisions,
+      }: { dirPath: string; filePath: string; decisions: Array<'local' | 'remote'> },
+    ) => {
+      await resolveHunks(dirPath, filePath, decisions);
+    },
+  );
+
+  ipcMain.handle('conflict:abort', async (_, { dirPath }: { dirPath: string }) => {
+    await abortRebase(dirPath);
+  });
+
+  ipcMain.handle('conflict:finalize', async (_, { dirPath }: { dirPath: string }) => {
+    await finalizeRebase(dirPath);
+  });
 
   ipcMain.handle('git:validate-remote', async (_, { url }: { url: string }) => {
     try {

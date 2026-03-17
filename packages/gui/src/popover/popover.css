@@ -9,7 +9,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  max-height: 480px;
+  max-height: 600px;
 }
 
 .popover-header {
@@ -56,9 +56,17 @@
   font-style: italic;
 }
 
+/* folder-item wraps folder-row + optional conflict banner */
+.folder-item {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.folder-item:last-child {
+  border-bottom: none;
+}
+
 /* folder-row is a container div; folder-row-content is the clickable button */
 .folder-row {
-  border-bottom: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
 }
@@ -151,6 +159,38 @@
 .sync-btn:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+.folder-conflict-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--status-error);
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding-right: var(--space-2);
+}
+
+.conflict-banner {
+  display: block;
+  width: 100%;
+  background: var(--accent-bg);
+  color: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  font-size: 12px;
+  font-family: var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+  margin: 0 var(--space-3) var(--space-2);
+  width: calc(100% - var(--space-3) * 2);
+}
+
+.conflict-banner:hover {
+  filter: brightness(0.92);
 }
 
 .popover-footer {
