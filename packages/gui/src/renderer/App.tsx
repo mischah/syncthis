@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Sidebar } from './components/Sidebar';
+import { UpdateBanner } from './components/UpdateBanner';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { ConflictResolution } from './views/ConflictResolution';
 import { DetailView } from './views/DetailView';
@@ -84,7 +85,7 @@ function AppLayout() {
         window.syncthis.invoke('app:hide-dashboard', undefined);
       } else if (e.key === 'q' || e.key === 'Q') {
         e.preventDefault();
-        window.syncthis.invoke('app:quit', undefined);
+        window.syncthis.invoke('app:hide-dashboard', undefined);
       } else if (e.key === ',') {
         e.preventDefault();
         setView('settings');
@@ -137,6 +138,7 @@ function AppLayout() {
         <Sidebar />
       </div>
       <main className="app-content">
+        <UpdateBanner />
         <ViewTransition view={viewName} folderPath={state.activeFolderPath} />
       </main>
     </div>

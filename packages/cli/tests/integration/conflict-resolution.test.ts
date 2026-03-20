@@ -147,7 +147,7 @@ describe('conflict-resolution integration', () => {
     // Spec: original file keeps local (Client B) version
     expect(original).toBe('Client B version\n');
 
-    const conflictCopyRel = result.conflictCopies![0];
+    const conflictCopyRel = result.conflictCopies?.[0];
     expect(existsSync(join(s.clientB, conflictCopyRel))).toBe(true);
     // Conflict copy filename follows schema: <base>.conflict-<timestamp><ext>
     expect(conflictCopyRel).toMatch(/\.conflict-\d{4}-\d{2}-\d{2}T/);
@@ -281,14 +281,14 @@ describe('conflict-resolution integration', () => {
     expect(f1).not.toContain('<<<<<<<');
     expect(f2).not.toContain('<<<<<<<');
 
-    for (const copy of result.conflictCopies!) {
+    for (const copy of result.conflictCopies ?? []) {
       expect(existsSync(join(clientB, copy))).toBe(true);
     }
 
     // All 4 files present in remote after push
     const verifyDir = join(tempDir, 'verify');
     await cloneRepo(remote, verifyDir);
-    for (const copy of result.conflictCopies!) {
+    for (const copy of result.conflictCopies ?? []) {
       expect(existsSync(join(verifyDir, copy))).toBe(true);
     }
   }, 20000);

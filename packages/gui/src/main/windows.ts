@@ -15,6 +15,11 @@ function createDashboardWindow(): BrowserWindow {
     minHeight: 680,
     show: false,
     backgroundColor,
+    ...(process.platform === 'linux' && {
+      icon: app.isPackaged
+        ? path.join(process.resourcesPath, 'icon.png')
+        : path.join(__dirname, '..', '..', 'resources', 'icon.png'),
+    }),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

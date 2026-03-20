@@ -11,7 +11,9 @@
     "start": "electron-forge start",
     "dev": "electron-forge start",
     "build": "electron-forge package",
-    "make": "electron-forge make"
+    "make": "electron-forge make",
+    "generate:icons": "tsx scripts/generate-tray-icons.ts",
+    "generate:app-icon": "tsx scripts/generate-app-icon.ts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "1.1.15",
@@ -44,7 +46,9 @@
     "@vitejs/plugin-react": "4.7.0",
     "autoprefixer": "10.4.27",
     "electron": "33.2.0",
+    "iconoir": "7.11.0",
     "postcss": "8.5.8",
+    "sharp": "0.34.5",
     "tailwindcss": "3.4.19",
     "tailwindcss-animate": "1.0.7",
     "typescript": "5.9.3",

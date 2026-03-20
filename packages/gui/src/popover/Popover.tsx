@@ -115,9 +115,23 @@ export function Popover() {
   useEffect(() => {
     window.syncthis.invoke('folders:list', undefined).then(setFolders);
 
-    const interval = setInterval(() => {
-      window.syncthis.invoke('folders:list', undefined).then(setFolders);
-    }, 10000);
+    // Use setTimeout (not setInterval) so a slow poll doesn't accumulate — the
+    // next poll starts 10 seconds after the current one finishes.
+    let pollTimer: ReturnType<typeof setTimeout> | null = null;
+    let cancelled = false;
+
+    function schedulePoll() {
+      pollTimer = setTimeout(async () => {
+        if (cancelled) return;
+        const result = await window.syncthis.invoke('folders:list', undefined);
+        if (!cancelled) {
+          setFolders(result);
+          schedulePoll();
+        }
+      }, 10000);
+    }
+
+    schedulePoll();
 
     const unsubService = window.syncthis.on('service:state-changed', () => {
       window.syncthis.invoke('folders:list', undefined).then(setFolders);
@@ -136,7 +150,8 @@ export function Popover() {
     });
 
     return () => {
-      clearInterval(interval);
+      cancelled = true;
+      if (pollTimer !== null) clearTimeout(pollTimer);
       unsubService();
       unsubHealth();
       unsubConflict();

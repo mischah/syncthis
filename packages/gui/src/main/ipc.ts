@@ -1,10 +1,10 @@
 import { execFile } from 'node:child_process';
 import { access, readFile, rm, writeFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import { basename, join } from 'node:path';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
-import { homedir } from 'node:os';
-import { basename, join } from 'node:path';
 import type {
   AppSettings,
   FolderDetail,
@@ -13,7 +13,7 @@ import type {
   LogEntry,
   ServiceStatus,
 } from '@syncthis/shared';
-import { BrowserWindow, Notification, app, dialog, ipcMain, shell } from 'electron';
+import { BrowserWindow, app, dialog, ipcMain, shell } from 'electron';
 import simpleGit from 'simple-git';
 import { loadConfig, writeConfig } from '../../../cli/src/config.js';
 import { determineHealth } from '../../../cli/src/health-check.js';
@@ -38,6 +38,12 @@ import {
 } from './credentials.js';
 import { readRecentLogs, watchLogFile } from './log-parser.js';
 import {
+  checkAndNotifyPersistentFailures,
+  checkAndNotifyServiceCrash,
+  recordUserStop,
+  showConflictNotification,
+} from './notifications.js';
+import {
   clearToken,
   createGitHubRepo,
   fetchUserRepos,
@@ -47,6 +53,7 @@ import {
   requestDeviceCode,
 } from './oauth.js';
 import { updateTrayIcon } from './tray.js';
+import { checkForUpdate, openReleasePage } from './updater.js';
 import { hideDashboard, openDashboard } from './windows.js';
 
 const REGISTRY_PATH = join(homedir(), '.syncthis', 'gui-folders.json');
@@ -56,9 +63,11 @@ function sanitizeError(message: string): string {
   return message.replace(/https?:\/\/[^@\s]+@/g, 'https://');
 }
 
+let lingerCheckResult: boolean | null = null;
+
 const logWatchers = new Map<string, () => void>();
 const previousConflictState = new Map<string, boolean>();
-const activeNotifications = new Set<Electron.Notification>();
+const previousServiceRunning = new Map<string, boolean>();
 
 function broadcastConflictDetected(dirPath: string): void {
   for (const win of BrowserWindow.getAllWindows()) {
@@ -66,27 +75,10 @@ function broadcastConflictDetected(dirPath: string): void {
   }
 }
 
-async function showConflictNotification(dirPath: string): Promise<void> {
-  try {
-    const config = await loadConfig(dirPath);
-    if (config.notify === false) return;
-    const files = await getConflictingFiles(dirPath).catch(() => []);
-    const fileCount = files.length || 1;
-    const notification = new Notification({
-      title: `Conflict in ${basename(dirPath)}`,
-      body: `${fileCount} file${fileCount > 1 ? 's have' : ' has'} conflicting changes. Click to resolve.`,
-    });
-    activeNotifications.add(notification);
-    notification.on('click', () => {
-      openDashboard('conflict', dirPath);
-      activeNotifications.delete(notification);
-    });
-    notification.on('close', () => {
-      activeNotifications.delete(notification);
-    });
-    notification.show();
-  } catch {
-    // non-fatal
+async function broadcastHealthChanged(dirPath: string): Promise<void> {
+  const health = await getHealthStatus(dirPath);
+  for (const win of BrowserWindow.getAllWindows()) {
+    win.webContents.send('health:changed', health);
   }
 }
 
@@ -94,6 +86,29 @@ function broadcastLogLine(dirPath: string, entry: LogEntry): void {
   for (const win of BrowserWindow.getAllWindows()) {
     win.webContents.send('logs:line', { dirPath, entry });
   }
+}
+
+async function refreshTrayIcon(): Promise<void> {
+  const paths = await readRegistry();
+  const results = await Promise.allSettled(
+    paths.map(async (dirPath) => ({
+      health: await getHealthStatus(dirPath),
+      conflict: await isRebaseInProgress(dirPath).catch(() => false),
+    })),
+  );
+  const statuses = results
+    .filter(
+      (r): r is PromiseFulfilledResult<{ health: HealthStatus; conflict: boolean }> =>
+        r.status === 'fulfilled',
+    )
+    .map((r) => r.value);
+
+  const state = statuses.some(
+    (s) => s.conflict || (s.health.serviceRunning && s.health.level !== 'healthy'),
+  )
+    ? 'unhealthy'
+    : 'idle';
+  updateTrayIcon(state);
 }
 
 async function readRegistry(): Promise<string[]> {
@@ -133,6 +148,47 @@ function toServiceStatus(serviceRunning: boolean): ServiceStatus {
   return serviceRunning ? 'running' : 'stopped';
 }
 
+export function startHealthPolling(): void {
+  // Keep tray icon in sync with daemon activity even when no window is open.
+  // Uses setTimeout (not setInterval) so a slow poll doesn't accumulate — the
+  // next poll starts 10 seconds after the current one finishes.
+  async function poll(): Promise<void> {
+    try {
+      await refreshTrayIcon();
+      const paths = await readRegistry();
+      await Promise.allSettled(
+        paths.map(async (dirPath) => {
+          try {
+            const [health, config] = await Promise.all([
+              getHealthStatus(dirPath),
+              loadConfig(dirPath).catch(() => null),
+            ]);
+            if (config?.notify !== false) {
+              const folderName = basename(dirPath);
+              const prevRunning = previousServiceRunning.get(dirPath);
+              if (prevRunning !== undefined) {
+                checkAndNotifyServiceCrash(dirPath, folderName, prevRunning, health.serviceRunning);
+              }
+              checkAndNotifyPersistentFailures(dirPath, folderName, health.consecutiveFailures);
+            }
+            previousServiceRunning.set(dirPath, health.serviceRunning);
+          } catch {
+            // non-fatal
+          }
+        }),
+      );
+    } finally {
+      setTimeout(() => {
+        void poll();
+      }, 10_000);
+    }
+  }
+
+  setTimeout(() => {
+    void poll();
+  }, 10_000);
+}
+
 export function registerIpcHandlers(): void {
   ipcMain.handle('folders:list', async (): Promise<FolderSummary[]> => {
     const paths = await readRegistry();
@@ -161,11 +217,11 @@ export function registerIpcHandlers(): void {
       .filter((r): r is PromiseFulfilledResult<FolderSummary> => r.status === 'fulfilled')
       .map((r) => r.value);
 
-    const trayState = summaries.some((s) => s.conflictDetected || s.health.level === 'unhealthy')
-      ? 'error'
-      : summaries.some((s) => s.health.level === 'degraded')
-        ? 'warning'
-        : 'idle';
+    const trayState = summaries.some(
+      (s) => s.conflictDetected || (s.health.serviceRunning && s.health.level !== 'healthy'),
+    )
+      ? 'unhealthy'
+      : 'idle';
     updateTrayIcon(trayState);
 
     return summaries;
@@ -236,19 +292,39 @@ export function registerIpcHandlers(): void {
   );
 
   ipcMain.handle('service:stop', async (_, { dirPath }: { dirPath: string }) => {
+    recordUserStop(dirPath);
     const result = await stopService(dirPath);
     broadcastServiceState(dirPath, 'stopped');
     return result;
   });
 
   ipcMain.handle('service:sync-now', async (_, { dirPath }: { dirPath: string }) => {
-    const config = await loadConfig(dirPath);
-    const logger = createLogger({ level: 'debug', logDir: join(dirPath, '.syncthis', 'logs') });
-    await runSyncCycle(dirPath, config, logger, { forceNonInteractive: true });
+    updateTrayIcon('syncing');
+    try {
+      const config = await loadConfig(dirPath);
+      const logger = createLogger({ level: 'debug', logDir: join(dirPath, '.syncthis', 'logs') });
+      await runSyncCycle(dirPath, config, logger, { forceNonInteractive: true });
+    } finally {
+      await Promise.all([refreshTrayIcon(), broadcastHealthChanged(dirPath)]);
+    }
   });
 
   ipcMain.handle('app:get-version', (): string => {
     return app.getVersion();
+  });
+
+  ipcMain.handle('app:check-update', async () => {
+    return checkForUpdate(app.getVersion());
+  });
+
+  ipcMain.handle('app:dismiss-update', async (_, { version }: { version: string }) => {
+    const settings = await loadAppSettings();
+    settings.dismissedUpdateVersion = version;
+    await saveAppSettings(settings);
+  });
+
+  ipcMain.handle('app:open-release-page', (_, { url }: { url: string }) => {
+    openReleasePage(url);
   });
 
   ipcMain.handle(
@@ -269,8 +345,9 @@ export function registerIpcHandlers(): void {
     hideDashboard();
   });
 
-  ipcMain.handle('app:quit', (): void => {
-    app.exit(0);
+  ipcMain.handle('app:quit', async (): Promise<void> => {
+    const { quitWithConfirmation } = await import('./tray.js');
+    await quitWithConfirmation();
   });
 
   ipcMain.handle('folders:remove', async (_, { dirPath }: { dirPath: string }) => {
@@ -301,6 +378,28 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('app:settings-write', async (_, settings: AppSettings): Promise<void> => {
     await saveAppSettings(settings);
     app.setLoginItemSettings({ openAtLogin: settings.launchOnLogin });
+  });
+
+  ipcMain.handle('app:linger-status', async (): Promise<{ show: boolean }> => {
+    if (process.platform !== 'linux') return { show: false };
+    const settings = await loadAppSettings();
+    if (settings.lingerWarningDismissed) return { show: false };
+    if (lingerCheckResult !== null) return { show: lingerCheckResult };
+    try {
+      const user = process.env.USER ?? process.env.LOGNAME ?? '';
+      const { stdout } = await execFileAsync('loginctl', ['show-user', user, '-p', 'Linger']);
+      lingerCheckResult = stdout.trim() === 'Linger=no';
+    } catch {
+      lingerCheckResult = false;
+    }
+    return { show: lingerCheckResult };
+  });
+
+  ipcMain.handle('app:dismiss-linger', async (): Promise<void> => {
+    lingerCheckResult = false;
+    const settings = await loadAppSettings();
+    settings.lingerWarningDismissed = true;
+    await saveAppSettings(settings);
   });
 
   ipcMain.handle('github:start-auth', async () => {
@@ -556,10 +655,12 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('conflict:abort', async (_, { dirPath }: { dirPath: string }) => {
     await abortRebase(dirPath);
+    void refreshTrayIcon();
   });
 
   ipcMain.handle('conflict:finalize', async (_, { dirPath }: { dirPath: string }) => {
     await finalizeRebase(dirPath);
+    void refreshTrayIcon();
   });
 
   ipcMain.handle('git:validate-remote', async (_, { url }: { url: string }) => {

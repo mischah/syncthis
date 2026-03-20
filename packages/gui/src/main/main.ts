@@ -1,15 +1,42 @@
-import { app } from 'electron';
+import { Menu, app } from 'electron';
 import { loadAppSettings } from './app-settings.js';
 import { ensureCliBundled } from './cli-bundler.js';
-import { readRegistry, registerIpcHandlers } from './ipc.js';
+import { readRegistry, registerIpcHandlers, startHealthPolling } from './ipc.js';
 import { createTray } from './tray.js';
-import { openDashboard } from './windows.js';
+import { startUpdateChecker } from './updater.js';
+import { hideDashboard, openDashboard } from './windows.js';
+
+const _startupTimestamp = Date.now();
 
 app.on('ready', async () => {
-  console.log('syncthis GUI started');
+  console.log(`[startup] app ready at +${Date.now() - _startupTimestamp}ms`);
 
   if (process.platform === 'darwin') {
     app.dock.hide();
+
+    // Override Cmd+Q: hide dashboard instead of quitting.
+    // Actual quit is only available via tray context menu → Quit.
+    Menu.setApplicationMenu(
+      Menu.buildFromTemplate([
+        {
+          label: app.name,
+          submenu: [
+            { role: 'about' },
+            { type: 'separator' },
+            { role: 'hide' },
+            { role: 'hideOthers' },
+            { role: 'unhide' },
+            { type: 'separator' },
+            {
+              label: 'Quit',
+              accelerator: 'CmdOrCtrl+Q',
+              click: () => hideDashboard(),
+            },
+          ],
+        },
+        { role: 'editMenu' },
+      ]),
+    );
   }
 
   try {
@@ -19,7 +46,15 @@ app.on('ready', async () => {
   }
 
   registerIpcHandlers();
-  createTray();
+  startHealthPolling();
+  startUpdateChecker(app.getVersion());
+
+  try {
+    createTray();
+    console.log(`[startup] tray created at +${Date.now() - _startupTimestamp}ms`);
+  } catch (err) {
+    console.warn('Tray creation failed (expected on some Linux DEs without AppIndicator):', err);
+  }
 
   const settings = await loadAppSettings();
   app.setLoginItemSettings({ openAtLogin: settings.launchOnLogin });

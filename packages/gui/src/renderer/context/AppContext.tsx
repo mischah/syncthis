@@ -1,10 +1,8 @@
-import type { FolderSummary } from '@syncthis/shared';
+import type { FolderSummary, UpdateInfo } from '@syncthis/shared';
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 
-export interface UpdateInfo {
-  version: string;
-}
+export type { UpdateInfo };
 
 interface AppState {
   folders: FolderSummary[];
@@ -18,6 +16,7 @@ interface AppContextValue {
   setActiveFolder: (dirPath: string) => void;
   setView: (view: AppState['view']) => void;
   refreshFolders: () => Promise<void>;
+  dismissUpdate: (version: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -44,6 +43,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  const dismissUpdate = useCallback(async (version: string) => {
+    await window.syncthis.invoke('app:dismiss-update', { version });
+    setState((prev) => ({ ...prev, updateAvailable: null }));
+  }, []);
+
   useEffect(() => {
     // Initial load: navigate to setup wizard if no folders registered yet
     void (async () => {
@@ -57,6 +61,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
             : (folders[0]?.dirPath ?? null),
         view: folders.length === 0 ? 'setup' : prev.view,
       }));
+    })();
+
+    // Check for update on mount
+    void (async () => {
+      const info = await window.syncthis.invoke('app:check-update', undefined);
+      if (info) {
+        setState((prev) => ({ ...prev, updateAvailable: info }));
+      }
     })();
 
     const interval = setInterval(() => {
@@ -86,12 +98,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       refreshFolders();
     });
 
+    const unsubUpdate = window.syncthis.on('update:available', (info) => {
+      setState((prev) => ({ ...prev, updateAvailable: info }));
+    });
+
     return () => {
       clearInterval(interval);
       unsubHealth();
       unsubService();
       unsubNavigate();
       unsubConflict();
+      unsubUpdate();
     };
   }, [refreshFolders]);
 
@@ -104,7 +121,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AppContext.Provider value={{ state, setActiveFolder, setView, refreshFolders }}>
+    <AppContext.Provider value={{ state, setActiveFolder, setView, refreshFolders, dismissUpdate }}>
       {children}
     </AppContext.Provider>
   );

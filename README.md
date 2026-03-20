@@ -268,6 +268,16 @@ Use `syncthis logs` or `syncthis logs --follow` as a shortcut to read them.
 
 ---
 
+## Desktop App
+
+A desktop GUI is available in [`packages/gui`](./packages/gui/README.md) — a tray app for macOS and Linux that provides a visual interface for managing your sync folders, resolving conflicts, and monitoring service health.
+
+The CLI remains fully functional as a standalone tool and is independent of the GUI.
+
+See [`packages/gui/README.md`](./packages/gui/README.md) for development and build instructions.
+
+---
+
 ## License
 
 [MIT](LICENSE)

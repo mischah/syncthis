@@ -30,7 +30,7 @@ function formatRelativeTime(isoString: string): string {
   return `${hours}h ${minutes % 60}m ago`;
 }
 
-function printHealthResult(dirPath: string, result: HealthCheckResult, label?: string): void {
+function printHealthResult(_dirPath: string, result: HealthCheckResult, label?: string): void {
   const { status, reasons, data, processRunning, uptime } = result;
   const statusSymbol = status === 'healthy' ? '✓' : status === 'degraded' ? '⚠' : '✗';
   const header =

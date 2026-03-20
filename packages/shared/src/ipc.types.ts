@@ -42,6 +42,12 @@ export interface FileDiff {
   imageData?: ImageData;
 }
 
+export interface UpdateInfo {
+  version: string;
+  releaseUrl: string;
+  publishedAt: string;
+}
+
 export interface AppSettings {
   launchOnLogin: boolean;
   defaults: {
@@ -53,6 +59,7 @@ export interface AppSettings {
     username?: string;
   };
   dismissedUpdateVersion?: string;
+  lingerWarningDismissed?: boolean;
 }
 
 export type LogEntryType =
@@ -207,7 +214,9 @@ export interface IpcChannels {
   // App
   'app:open-folder-picker': { args: undefined; result: string | null };
   'app:reveal-in-file-manager': { args: { dirPath: string }; result: undefined };
-  'app:check-update': { args: never; result: never };
+  'app:check-update': { args: undefined; result: UpdateInfo | null };
+  'app:dismiss-update': { args: { version: string }; result: undefined };
+  'app:open-release-page': { args: { url: string }; result: undefined };
   'app:get-version': { args: undefined; result: string };
   'app:open-dashboard': {
     args: { view?: string; activeFolderPath?: string } | undefined;
@@ -218,6 +227,8 @@ export interface IpcChannels {
   'app:resize-popover': { args: { height: number }; result: undefined };
   'app:settings-read': { args: undefined; result: AppSettings };
   'app:settings-write': { args: AppSettings; result: undefined };
+  'app:linger-status': { args: undefined; result: { show: boolean } };
+  'app:dismiss-linger': { args: undefined; result: undefined };
 
   // Logs
   'logs:recent': { args: { dirPath: string; maxLines?: number }; result: LogEntry[] };
@@ -231,4 +242,5 @@ export interface IpcEvents {
   'logs:line': { dirPath: string; entry: LogEntry };
   'app:navigate': { view: string; activeFolderPath?: string };
   'conflict:detected': { dirPath: string };
+  'update:available': UpdateInfo;
 }

@@ -3,6 +3,7 @@ export type { HealthLevel, HealthStatus, ServiceStatus } from './health.types.js
 export type { JsonOutput } from './json-output.types.js';
 export type {
   AppSettings,
+  UpdateInfo,
   FolderSummary,
   FolderDetail,
   LastCommitInfo,

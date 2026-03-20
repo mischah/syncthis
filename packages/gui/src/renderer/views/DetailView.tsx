@@ -7,10 +7,13 @@ import {
   Play,
   RefreshDouble,
   Settings,
+  Xmark,
   XmarkSquare,
 } from 'iconoir-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityLog } from '../components/ActivityLog';
+import { Toast } from '../components/Toast';
+import { UpdateBanner } from '../components/UpdateBanner';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import {
@@ -72,6 +75,8 @@ export function DetailView() {
   const [syncing, setSyncing] = useState(false);
   const [starting, setStarting] = useState(false);
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
+  const [showLingerWarning, setShowLingerWarning] = useState(false);
+  const [toast, setToast] = useState<{ msg: string; variant: 'success' | 'error' } | null>(null);
 
   const showSidebar = state.folders.length >= 2;
 
@@ -90,6 +95,13 @@ export function DetailView() {
   useEffect(() => {
     loadDetail();
   }, [loadDetail]);
+
+  useEffect(() => {
+    window.syncthis
+      .invoke('app:linger-status', undefined)
+      .then(({ show }) => setShowLingerWarning(show))
+      .catch(() => {});
+  }, []);
 
   const handleSyncNowRef = useRef(handleSyncNow);
   handleSyncNowRef.current = handleSyncNow;
@@ -161,6 +173,9 @@ export function DetailView() {
       }
       await refreshFolders();
       await loadDetail();
+    } catch (err) {
+      const details = err instanceof Error ? err.message : String(err);
+      setToast({ msg: t('error.service_start', { details }), variant: 'error' });
     } finally {
       setStarting(false);
     }
@@ -168,9 +183,13 @@ export function DetailView() {
 
   async function handleStop() {
     if (!state.activeFolderPath) return;
-    await window.syncthis.invoke('service:stop', { dirPath: state.activeFolderPath });
-    await refreshFolders();
-    await loadDetail();
+    try {
+      await window.syncthis.invoke('service:stop', { dirPath: state.activeFolderPath });
+      await refreshFolders();
+      await loadDetail();
+    } catch {
+      setToast({ msg: t('error.service_stop'), variant: 'error' });
+    }
   }
 
   async function handleOpenFolder() {
@@ -225,6 +244,60 @@ export function DetailView() {
             </Button>
           </div>
         </div>
+
+        <UpdateBanner />
+
+        {showLingerWarning && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 'var(--space-2)',
+              padding: 'var(--space-2) var(--space-3)',
+              background: 'var(--accent-bg)',
+              color: 'var(--accent)',
+              borderRadius: 'var(--radius-sm)',
+              marginBottom: 'var(--space-3)',
+              fontSize: 13,
+              flexDirection: 'column',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+              <span style={{ flex: 1 }}>{t('linux.linger_warning')}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLingerWarning(false);
+                  void window.syncthis.invoke('app:dismiss-linger', undefined);
+                }}
+                aria-label={t('linux.linger_dismiss')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--accent)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: 2,
+                  opacity: 0.7,
+                }}
+              >
+                <Xmark width={14} height={14} strokeWidth={2} />
+              </button>
+            </div>
+            <code
+              style={{
+                background: 'var(--bg-tertiary)',
+                padding: '4px 8px',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: 12,
+                userSelect: 'all',
+              }}
+            >
+              {t('linux.linger_command')}
+            </code>
+          </div>
+        )}
 
         <Separator />
 
@@ -385,6 +458,10 @@ export function DetailView() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {toast && (
+          <Toast message={toast.msg} variant={toast.variant} onDone={() => setToast(null)} />
+        )}
       </div>
     </TooltipProvider>
   );

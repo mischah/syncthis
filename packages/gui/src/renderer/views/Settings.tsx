@@ -192,8 +192,9 @@ function FolderSettingsForm({ dirPath }: FolderSettingsFormProps) {
       setConfig(updated);
       setForm(configToForm(updated));
       await refreshFolders();
-    } catch {
-      setToast({ message: 'Failed to save settings.', variant: 'error' });
+    } catch (err) {
+      const details = err instanceof Error ? err.message : String(err);
+      setToast({ message: t('error.settings_save', { details }), variant: 'error' });
     } finally {
       setSaving(false);
     }
