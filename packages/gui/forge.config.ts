@@ -29,7 +29,21 @@ const config: ForgeConfig = {
   },
   rebuildConfig: {},
   makers: [
-    new MakerDMG({ name: `SyncThis-${version}-mac` }, ['darwin']),
+    new MakerDMG(
+      {
+        name: `SyncThis-${version}-mac`,
+        background: './resources/dmg/dmg-background@2x.png',
+        iconSize: 80,
+        contents: (opts) => [
+          { x: 190, y: 200, type: 'file', path: opts.appPath },
+          { x: 470, y: 200, type: 'link', path: '/Applications' },
+        ],
+        additionalDMGOptions: {
+          window: { size: { width: 660, height: 400 } },
+        },
+      },
+      ['darwin'],
+    ),
     new MakerDeb({ options: { bin: 'SyncThis' } }, ['linux']),
   ],
   hooks: {
