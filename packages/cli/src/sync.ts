@@ -30,9 +30,10 @@ export async function runSyncCycle(
   dirPath: string,
   config: SyncthisConfig,
   logger: Logger,
-  options?: { forceNonInteractive?: boolean },
+  options?: { forceNonInteractive?: boolean; gitBinary?: string; gitEnv?: Record<string, string> },
 ): Promise<SyncResult> {
-  const git = simpleGit(dirPath);
+  const git = simpleGit(dirPath, options?.gitBinary ? { binary: options.gitBinary } : {});
+  if (options?.gitEnv) git.env(options.gitEnv);
 
   // Check if rebase is in progress from a previous conflict
   const rebaseInProgress = await isRebaseInProgress(git);

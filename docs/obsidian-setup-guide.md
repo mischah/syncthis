@@ -26,13 +26,15 @@ This guide walks you through setting up **syncthis** to keep your [Obsidian](htt
 
 **GitHub** is an online service that stores your Git repositories in the cloud. It's where your notes live when they're being synced between devices — like a secure locker that all your devices can access.
 
-You don't need to understand how Git or GitHub work in detail. syncthis handles all of that for you. You just need Git installed and a GitHub account.
+You don't need to understand how Git or GitHub work in detail. syncthis handles all of that for you. You just need a GitHub account. The desktop app includes Git — if you use the CLI, you'll need Git installed separately.
 
 ---
 
-## 2. Install Git
+## 2. Install Git (CLI only)
 
-Git is the engine that syncthis uses under the hood. You need it installed on every device you want to sync.
+> **Desktop app users:** You can skip this step. The desktop app bundles its own Git and will use your system Git automatically if available.
+
+Git is the engine that syncthis uses under the hood. If you plan to use the CLI, you need it installed on every device you want to sync.
 
 **Check if Git is already installed:**
 
@@ -69,7 +71,7 @@ That's all you need — a free account is sufficient.
 
 ## 4. Set Up with the Desktop App
 
-The desktop app includes a setup wizard that handles everything for you — no terminal needed beyond installing Git.
+The desktop app includes a setup wizard that handles everything for you — no terminal needed.
 
 ### Download and install
 
@@ -108,8 +110,7 @@ That's it. syncthis sits in your menu bar (macOS) or system tray (Linux) and syn
 
 On each additional device:
 
-1. Install Git ([step 2](#2-install-git)).
-2. Download and install the syncthis desktop app ([step 4](#4-set-up-with-the-desktop-app)).
+1. Download and install the syncthis desktop app ([step 4](#4-set-up-with-the-desktop-app)).
 3. Run the setup wizard — connect the same GitHub account and select the **same repository**.
 4. Choose where to put the vault folder on this device.
 

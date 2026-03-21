@@ -26,21 +26,26 @@ const IMAGE_EXTENSIONS: Record<string, string> = {
 const IMAGE_SIZE_LIMIT = 5 * 1024 * 1024; // 5 MB
 
 async function getGitStageBuffer(dirPath: string, stage: 2 | 3, filePath: string): Promise<Buffer> {
-  const { stdout } = await execFileAsync('git', ['-C', dirPath, 'show', `:${stage}:${filePath}`], {
-    encoding: 'buffer',
-    maxBuffer: 20 * 1024 * 1024,
-  });
+  const { stdout } = await execFileAsync(
+    getGitBinaryPath(),
+    ['-C', dirPath, 'show', `:${stage}:${filePath}`],
+    {
+      encoding: 'buffer',
+      maxBuffer: 20 * 1024 * 1024,
+      env: { ...process.env, ...getGitEnv() },
+    },
+  );
   return stdout;
 }
 import { diffWords, structuredPatch } from 'diff';
-import simpleGit from 'simple-git';
 import { generateConflictFilename } from '../../../cli/src/conflict/conflict-filename.js';
 import { applyHunkDecisions } from '../../../cli/src/conflict/hunk-resolver.js';
 import { readHealthFile, writeHealthFile } from '../../../cli/src/health.js';
 import { createLogger } from '../../../cli/src/logger.js';
+import { getGitBinaryPath, getGitEnv, getSimpleGit } from './git-provider.js';
 
 export async function isRebaseInProgress(dirPath: string): Promise<boolean> {
-  const git = simpleGit(dirPath);
+  const git = getSimpleGit(dirPath);
   const gitDir = (await git.revparse(['--absolute-git-dir'])).trim();
   const rebaseMerge = path.join(gitDir, 'rebase-merge');
   const rebaseApply = path.join(gitDir, 'rebase-apply');
@@ -58,7 +63,7 @@ export async function isRebaseInProgress(dirPath: string): Promise<boolean> {
 }
 
 export async function getConflictingFiles(dirPath: string): Promise<ConflictFile[]> {
-  const git = simpleGit(dirPath);
+  const git = getSimpleGit(dirPath);
   const output = await git.raw(['diff', '-z', '--name-only', '--diff-filter=U']);
   return output
     .split('\0')
@@ -67,7 +72,7 @@ export async function getConflictingFiles(dirPath: string): Promise<ConflictFile
 }
 
 export async function getFileDiff(dirPath: string, filePath: string): Promise<FileDiff> {
-  const git = simpleGit(dirPath);
+  const git = getSimpleGit(dirPath);
   const ext = path.extname(filePath).toLowerCase();
   const mimeType = IMAGE_EXTENSIONS[ext];
 
@@ -157,7 +162,7 @@ export async function resolveFile(
   filePath: string,
   choice: 'local' | 'remote' | 'both',
 ): Promise<void> {
-  const git = simpleGit(dirPath);
+  const git = getSimpleGit(dirPath);
 
   if (choice === 'local') {
     await git.raw(['checkout', '--ours', filePath]);
@@ -187,7 +192,7 @@ export async function resolveHunks(
   filePath: string,
   decisions: Array<'local' | 'remote'>,
 ): Promise<void> {
-  const git = simpleGit(dirPath);
+  const git = getSimpleGit(dirPath);
   const localContent = await git.raw(['show', `:2:${filePath}`]);
   const remoteContent = await git.raw(['show', `:3:${filePath}`]);
 
@@ -197,12 +202,12 @@ export async function resolveHunks(
 }
 
 export async function abortRebase(dirPath: string): Promise<void> {
-  const git = simpleGit(dirPath);
+  const git = getSimpleGit(dirPath);
   await git.raw(['rebase', '--abort']);
 }
 
 export async function finalizeRebase(dirPath: string): Promise<void> {
-  const git = simpleGit(dirPath);
+  const git = getSimpleGit(dirPath);
   const logDir = path.join(dirPath, '.syncthis', 'logs');
   const logger = createLogger({ level: 'info', logDir });
 

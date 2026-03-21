@@ -31,8 +31,8 @@ syncthis runs as a tray app that sits in your menu bar. Connect your GitHub acco
 
 ### Prerequisites
 
-- [Git](https://git-scm.com/downloads) installed
 - A [GitHub](https://github.com) account (free)
+- [Git](https://git-scm.com/downloads) installed (CLI only — the desktop app includes Git)
 
 New to Git? Follow the [Obsidian Setup Guide](docs/obsidian-setup-guide.md) for a step-by-step walkthrough.
 

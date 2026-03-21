@@ -4,6 +4,7 @@ import { chmod, mkdir, readdir, unlink, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
+import { getGitBinaryPath, getGitEnv } from './git-provider.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -30,7 +31,13 @@ export async function configureRepoCredentialHelper(
   dirPath: string,
   scriptPath: string,
 ): Promise<void> {
-  await execFileAsync('git', ['-C', dirPath, 'config', 'credential.helper', `!${scriptPath}`]);
+  await execFileAsync(
+    getGitBinaryPath(),
+    ['-C', dirPath, 'config', 'credential.helper', `!${scriptPath}`],
+    {
+      env: { ...process.env, ...getGitEnv() },
+    },
+  );
 }
 
 export async function setupCredentials(dirPath: string, token: string): Promise<void> {
@@ -46,7 +53,13 @@ export async function removeCredentialHelper(dirPath: string): Promise<void> {
     // file may not exist
   }
   try {
-    await execFileAsync('git', ['-C', dirPath, 'config', '--unset', 'credential.helper']);
+    await execFileAsync(
+      getGitBinaryPath(),
+      ['-C', dirPath, 'config', '--unset', 'credential.helper'],
+      {
+        env: { ...process.env, ...getGitEnv() },
+      },
+    );
   } catch {
     // config may not be set
   }
