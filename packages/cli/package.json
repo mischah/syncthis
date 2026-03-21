@@ -39,12 +39,12 @@
     "simple-git": "3.33.0"
   },
   "devDependencies": {
-    "@types/node": "25.4.0",
-    "@vitest/coverage-v8": "4.0.18",
-    "tsdown": "0.21.2",
+    "@types/node": "25.5.0",
+    "@vitest/coverage-v8": "4.1.0",
+    "tsdown": "0.21.4",
     "tsx": "4.21.0",
     "typescript": "5.9.3",
-    "vitest": "4.0.18"
+    "vitest": "4.1.0"
   },
   "np": {
     "contents": "dist"
