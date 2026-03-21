@@ -78,6 +78,7 @@ export function DiffView({ diff, mode = 'unified', activeHunkIndex }: DiffViewPr
       </div>
       {activeHunk && <div className="diff-hunk-header">@@ Line {activeHunk.startLine} @@</div>}
       {linesToRender.map((line, li) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: DiffLine has no unique ID, list is stable
         <div key={`${line.type}-${li}`} className={`diff-line diff-line-${line.type}`}>
           {line.text || '\u00A0'}
         </div>

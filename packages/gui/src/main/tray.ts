@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { BrowserWindow, Menu, Tray, app, dialog, nativeImage, nativeTheme, screen } from 'electron';
+import { app, BrowserWindow, dialog, Menu, nativeImage, nativeTheme, screen, Tray } from 'electron';
 import { determineHealth } from '../../../cli/src/health-check.js';
 import { stopService } from './cli-bridge.js';
 import { readRegistry } from './ipc.js';

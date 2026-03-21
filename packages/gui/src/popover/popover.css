@@ -175,7 +175,6 @@
 
 .conflict-banner {
   display: block;
-  width: 100%;
   background: var(--accent-bg);
   color: var(--accent);
   border: none;

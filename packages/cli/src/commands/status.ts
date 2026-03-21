@@ -1,12 +1,12 @@
 import { access } from 'node:fs/promises';
 import { join } from 'node:path';
 import simpleGit from 'simple-git';
-import { type SyncthisConfig, loadConfig } from '../config.js';
+import { loadConfig, type SyncthisConfig } from '../config.js';
 import { isRebaseInProgress } from '../conflict/resolver.js';
 import { getPlatform } from '../daemon/platform.js';
 import { generateServiceName } from '../daemon/service-name.js';
 import { readHealthFile } from '../health.js';
-import { type StatusData, printJson } from '../json-output.js';
+import { printJson, type StatusData } from '../json-output.js';
 import { isLocked, readLockFile } from '../lock.js';
 import { printDaemonTable } from './daemon.js';
 

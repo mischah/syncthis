@@ -1,6 +1,6 @@
 import type { FolderSummary, UpdateInfo } from '@syncthis/shared';
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 export type { UpdateInfo };
 

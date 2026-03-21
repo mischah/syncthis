@@ -5,8 +5,8 @@ import { loadConfig } from '../config.js';
 import { resolveInteractive } from '../conflict/interactive.js';
 import { getConflictFiles, isRebaseInProgress } from '../conflict/resolver.js';
 import { readHealthFile, writeHealthFile } from '../health.js';
-import { createLogger } from '../logger.js';
 import type { Logger } from '../logger.js';
+import { createLogger } from '../logger.js';
 
 export interface ResolveOptions {
   path: string;

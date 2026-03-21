@@ -236,7 +236,9 @@
   height: 14px;
   border-radius: 50%;
   background: var(--text-secondary);
-  transition: transform 150ms ease, background 150ms ease;
+  transition:
+    transform 150ms ease,
+    background 150ms ease;
 }
 
 .settings-switch input:checked + .settings-switch-track {

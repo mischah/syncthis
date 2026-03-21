@@ -171,7 +171,7 @@ export function ActivityLog({ dirPath }: { dirPath: string }) {
       <ul ref={listRef} className={`activity-list${overflows ? ' activity-list--overflows' : ''}`}>
         {entries.map((entry, i) => (
           <li
-            key={`${entry.timestamp}-${i}`}
+            key={`${entry.timestamp}-${entry.message}`}
             className={`activity-entry${entry.timestamp === newestTimestamp && i === 0 ? ' activity-entry--new' : ''}`}
           >
             <span className="activity-time">{formatTime(entry.timestamp)}</span>

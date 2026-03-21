@@ -62,10 +62,7 @@ interface ConflictScenario {
 }
 
 async function createConflictScenario(
-  opts: {
-    clientADate?: string;
-    clientBDate?: string;
-  } = {},
+  opts: { clientADate?: string; clientBDate?: string } = {},
 ): Promise<ConflictScenario> {
   const tempDir = await mkdtemp(join(tmpdir(), 'syncthis-cr-'));
   tempDirs.push(tempDir);

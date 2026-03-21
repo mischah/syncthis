@@ -1,5 +1,5 @@
 import type { UpdateInfo } from '@syncthis/shared';
-import { net, BrowserWindow, Notification, shell } from 'electron';
+import { BrowserWindow, Notification, net, shell } from 'electron';
 import { loadAppSettings } from './app-settings.js';
 
 export type { UpdateInfo };

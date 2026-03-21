@@ -3,8 +3,8 @@ import { isCancel, log, select } from '@clack/prompts';
 import { Chalk } from 'chalk';
 import { createTwoFilesPatch, structuredPatch } from 'diff';
 import {
-  type ProgressInfo,
   clearScreen,
+  type ProgressInfo,
   parseUnifiedDiff,
   renderSingleHunk,
   renderStatusLine,
