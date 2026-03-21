@@ -7,5 +7,12 @@ export default defineConfig(({ mode }) => {
     define: {
       'process.env.GITHUB_CLIENT_ID': JSON.stringify(env.GITHUB_CLIENT_ID ?? ''),
     },
+    build: {
+      rollupOptions: {
+        // dugite uses __dirname to locate its bundled git binary —
+        // bundling it would break that path resolution
+        external: ['dugite'],
+      },
+    },
   };
 });

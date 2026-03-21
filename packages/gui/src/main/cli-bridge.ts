@@ -3,13 +3,25 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import type { JsonOutput } from '@syncthis/shared';
+import { getGitBinDir, getGitEnv, getGitSource } from './git-provider.js';
 
 const execFileAsync = promisify(execFile);
 const CLI_BIN = join(homedir(), '.syncthis', 'bin', 'syncthis');
 
+function buildCliEnv(): NodeJS.ProcessEnv | undefined {
+  if (getGitSource() !== 'bundled') return undefined;
+  const gitBinDir = getGitBinDir();
+  return {
+    ...process.env,
+    ...getGitEnv(),
+    SYNCTHIS_GIT_DIR: gitBinDir,
+    PATH: `${gitBinDir}:${process.env.PATH}`,
+  };
+}
+
 export async function runCli(args: string[]): Promise<JsonOutput> {
   try {
-    const { stdout } = await execFileAsync(CLI_BIN, [...args, '--json']);
+    const { stdout } = await execFileAsync(CLI_BIN, [...args, '--json'], { env: buildCliEnv() });
     return JSON.parse(stdout) as JsonOutput;
   } catch (err: unknown) {
     const error = err as { stdout?: string; message?: string };

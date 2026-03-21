@@ -22,8 +22,9 @@ function buildProgramArguments(config: DaemonConfig): string[] {
   return args;
 }
 
-function buildPath(nodeBinDir: string): string {
-  return `${nodeBinDir}:${DEFAULT_PATH}`;
+function buildPath(nodeBinDir: string, gitBinDir?: string): string {
+  const extra = gitBinDir ? `${gitBinDir}:` : '';
+  return `${extra}${nodeBinDir}:${DEFAULT_PATH}`;
 }
 
 export function generatePlist(config: DaemonConfig): string {
@@ -32,7 +33,7 @@ export function generatePlist(config: DaemonConfig): string {
   const runAtLoad = '<false/>';
   const stdoutPath = `${config.dirPath}/.syncthis/logs/launchd-stdout.log`;
   const stderrPath = `${config.dirPath}/.syncthis/logs/launchd-stderr.log`;
-  const envPath = buildPath(config.nodeBinDir);
+  const envPath = buildPath(config.nodeBinDir, config.gitBinDir);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -77,7 +78,7 @@ ${argsXml}
 export function generateSystemdUnit(config: DaemonConfig): string {
   const args = buildProgramArguments(config);
   const execStart = args.map((a) => (a.includes(' ') ? `"${a}"` : a)).join(' ');
-  const envPath = buildPath(config.nodeBinDir);
+  const envPath = buildPath(config.nodeBinDir, config.gitBinDir);
 
   return `[Unit]
 Description=syncthis sync daemon for ${config.dirPath}

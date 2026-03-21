@@ -2,7 +2,7 @@
 [![CI](https://github.com/mischah/syncthis/actions/workflows/ci.yml/badge.svg)](https://github.com/mischah/syncthis/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-# syncthis
+# <img src="packages/gui/resources/icons/icon-64.png" width="32" height="32" valign="middle" alt="syncthis icon" /> syncthis
 
 > Automatic directory synchronization via Git.
 
@@ -31,8 +31,8 @@ syncthis runs as a tray app that sits in your menu bar. Connect your GitHub acco
 
 ### Prerequisites
 
-- [Git](https://git-scm.com/downloads) installed
 - A [GitHub](https://github.com) account (free)
+- [Git](https://git-scm.com/downloads) installed (CLI only — the desktop app includes Git)
 
 New to Git? Follow the [Obsidian Setup Guide](docs/obsidian-setup-guide.md) for a step-by-step walkthrough.
 

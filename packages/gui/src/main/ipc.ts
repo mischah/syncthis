@@ -14,7 +14,6 @@ import type {
   ServiceStatus,
 } from '@syncthis/shared';
 import { BrowserWindow, app, dialog, ipcMain, shell } from 'electron';
-import simpleGit from 'simple-git';
 import { loadConfig, writeConfig } from '../../../cli/src/config.js';
 import { determineHealth } from '../../../cli/src/health-check.js';
 import { createLogger } from '../../../cli/src/logger.js';
@@ -36,6 +35,7 @@ import {
   setupCredentials,
   writeCredentialHelper,
 } from './credentials.js';
+import { getGitBinaryPath, getGitEnv, getSimpleGit } from './git-provider.js';
 import { readRecentLogs, watchLogFile } from './log-parser.js';
 import {
   checkAndNotifyPersistentFailures,
@@ -234,7 +234,7 @@ export function registerIpcHandlers(): void {
 
       let lastCommit = null;
       try {
-        const git = simpleGit(dirPath);
+        const git = getSimpleGit(dirPath);
         const log = await git.log({ maxCount: 1 });
         if (log.latest) {
           lastCommit = {
@@ -303,7 +303,11 @@ export function registerIpcHandlers(): void {
     try {
       const config = await loadConfig(dirPath);
       const logger = createLogger({ level: 'debug', logDir: join(dirPath, '.syncthis', 'logs') });
-      await runSyncCycle(dirPath, config, logger, { forceNonInteractive: true });
+      await runSyncCycle(dirPath, config, logger, {
+        forceNonInteractive: true,
+        gitBinary: getGitBinaryPath(),
+        gitEnv: getGitEnv(),
+      });
     } finally {
       await Promise.all([refreshTrayIcon(), broadcastHealthChanged(dirPath)]);
     }
@@ -672,7 +676,10 @@ export function registerIpcHandlers(): void {
           effectiveUrl = url.replace('https://', `https://x-access-token:${token}@`);
         }
       }
-      await execFileAsync('git', ['ls-remote', effectiveUrl], { timeout: 15000 });
+      await execFileAsync(getGitBinaryPath(), ['ls-remote', effectiveUrl], {
+        timeout: 15000,
+        env: { ...process.env, ...getGitEnv() },
+      });
       return { valid: true };
     } catch (err) {
       return { valid: false, message: err instanceof Error ? err.message : String(err) };

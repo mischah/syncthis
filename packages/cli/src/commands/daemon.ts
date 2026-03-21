@@ -127,6 +127,7 @@ export async function daemonStart(flags: DaemonFlags): Promise<DaemonStartData> 
     interval: mergedConfig.interval ?? undefined,
     logLevel: flags.logLevel,
     onConflict: mergedConfig.onConflict !== 'auto-both' ? mergedConfig.onConflict : undefined,
+    gitBinDir: process.env.SYNCTHIS_GIT_DIR || undefined,
   };
 
   await platform.install(daemonConfig);
