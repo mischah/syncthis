@@ -3,6 +3,7 @@ name: GUI Release
 on:
   release:
     types: [published]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -27,14 +28,47 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Import Apple certificate
+        if: runner.os == 'macOS'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          CERT_PATH=$RUNNER_TEMP/build_cert.p12
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          echo -n "$APPLE_CERTIFICATE" | base64 --decode -o $CERT_PATH
+          security create-keychain -p "tmp-pw" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "tmp-pw" $KEYCHAIN_PATH
+          security import $CERT_PATH -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security set-key-partition-list -S apple-tool:,apple: -k "tmp-pw" $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+      - name: Write App Store Connect API key
+        if: runner.os == 'macOS'
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+        run: |
+          echo -n "$APPLE_API_KEY" | base64 --decode \
+            > $RUNNER_TEMP/AuthKey_${{ secrets.APPLE_API_KEY_ID }}.p8
+
       - name: Make GUI distributables
         env:
           GITHUB_CLIENT_ID: ${{ secrets.GITHUB_CLIENT_ID }}
+          APPLE_TEAM_ID: ${{ runner.os == 'macOS' && secrets.APPLE_TEAM_ID || '' }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_KEY_ISSUER: ${{ secrets.APPLE_API_KEY_ISSUER }}
+          APPLE_API_KEY_PATH: ${{ runner.os == 'macOS' && format('{0}/AuthKey_{1}.p8', runner.temp, secrets.APPLE_API_KEY_ID) || '' }}
         run: npm run make -w packages/gui
 
       - name: Upload assets to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          TAG="${{ github.event.release.tag_name }}"
+          if [ -z "$TAG" ]; then
+            TAG=$(gh release list --limit 1 --json tagName --jq '.[0].tagName')
+          fi
           find packages/gui/out/make -type f \( -name "*.dmg" -o -name "*.deb" \) -print0 \
-            | xargs -0 gh release upload "${{ github.event.release.tag_name }}" --clobber
+            | xargs -0 gh release upload "$TAG" --clobber

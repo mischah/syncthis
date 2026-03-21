@@ -18,6 +18,14 @@ const config: ForgeConfig = {
     appCategoryType: 'public.app-category.productivity',
     icon: './resources/icon',
     extraResource: ['resources/tray', '../cli/dist'],
+    osxSign: process.env.APPLE_TEAM_ID ? {} : undefined,
+    osxNotarize: process.env.APPLE_API_KEY_PATH
+      ? {
+          appleApiKey: process.env.APPLE_API_KEY_PATH,
+          appleApiKeyId: process.env.APPLE_API_KEY_ID ?? '',
+          appleApiIssuer: process.env.APPLE_API_KEY_ISSUER ?? '',
+        }
+      : undefined,
   },
   rebuildConfig: {},
   makers: [

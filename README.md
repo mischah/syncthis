@@ -45,8 +45,6 @@ Download the latest release from [GitHub Releases](https://github.com/mischah/sy
 | macOS | DMG (arm64 + x64) |
 | Linux | deb |
 
-> **macOS:** Builds are unsigned. If macOS blocks the app with a "damaged" error, run `xattr -cr /Applications/syncthis.app` in Terminal, then try again.
-
 ---
 
 ## Command Line

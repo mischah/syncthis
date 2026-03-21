@@ -37,8 +37,6 @@ npm run make:gui
 
 Cross-compilation is not supported — macOS builds require macOS, Linux builds require Linux.
 
-macOS builds are unsigned in v1. Users need to run `xattr -cr /Applications/syncthis.app` in Terminal to bypass Gatekeeper.
-
 ## Icon Generation
 
 ```bash
