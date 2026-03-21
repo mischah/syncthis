@@ -1,6 +1,10 @@
 # Conflict Strategies
 
-Configure how syncthis handles merge conflicts with `onConflict` in `.syncthis.json` or `--on-conflict` on the command line.
+Configure how syncthis handles merge conflicts via the Apps "On conflict" settings.
+
+![Folder Settings](images/folder-settings.png)
+
+Or with `onConflict` in `.syncthis.json` or `--on-conflict` on the command line.
 
 ```json
 { "onConflict": "auto-both" }
@@ -12,7 +16,7 @@ syncthis start --on-conflict ask
 
 ---
 
-## `auto-both` (default)
+## `auto-both` (CLI default)
 
 Keeps both versions — no data is lost:
 
@@ -29,6 +33,16 @@ Both files are committed and pushed, so the conflict copy appears on all devices
 
 ---
 
+## `ask` (Desktop app default)
+
+Pauses the sync and prompts you interactively to resolve each conflict:
+
+- **In foreground / TTY mode:** Shows a word-level diff and prompts inline to choose per file: `local` / `remote` / `both` / `chunk-by-chunk` / `abort`. The chunk-by-chunk mode lets you decide individually for each diff hunk.
+- **In background service mode (non-TTY):** The rebase is left open. Run `syncthis resolve` in the same directory to complete resolution interactively.
+- **In the desktop app:** Conflicts are resolved through a built-in visual diff interface — no terminal needed.
+
+---
+
 ## `auto-newest`
 
 Automatically keeps the version with the newer Git commit timestamp. The older version is discarded.
@@ -38,7 +52,7 @@ Automatically keeps the version with the newer Git commit timestamp. The older v
 
 ---
 
-## `stop`
+## `stop` (CLI only)
 
 Stops the sync loop immediately and exits with code 1. Resolve the conflict manually:
 
@@ -50,15 +64,6 @@ git add -A
 git rebase --continue
 syncthis start
 ```
-
----
-
-## `ask`
-
-Pauses the sync and prompts you interactively to resolve each conflict:
-
-- **In foreground / TTY mode:** Shows a word-level diff and prompts inline to choose per file: `local` / `remote` / `both` / `chunk-by-chunk` / `abort`. The chunk-by-chunk mode lets you decide individually for each diff hunk.
-- **In background service mode (non-TTY):** The rebase is left open. Run `syncthis resolve` in the same directory to complete resolution interactively.
 
 ---
 

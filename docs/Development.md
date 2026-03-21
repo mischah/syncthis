@@ -18,6 +18,8 @@ npm install
 | `npm run lint` | Lint and check formatting |
 | `npm run lint:fix` | Auto-fix lint and formatting issues |
 | `npm run typecheck -w packages/cli` | Type-check without building |
+| `npm run dev:gui` | Run GUI in development mode |
+| `npm run make:gui` | Build GUI distributables |
 
 Before finishing work on a feature or fix, all three must pass:
 
@@ -32,6 +34,13 @@ npm run lint:fix
 ```
 syncthis/
 ├── packages/
+│   ├── gui/
+│   │   ├── src/
+│   │   │   ├── main/             # Electron main process + IPC
+│   │   │   ├── renderer/         # React UI (views, components, hooks)
+│   │   │   └── preload/          # Preload scripts (context bridge)
+│   │   ├── forge.config.ts       # Electron Forge config (makers, plugins)
+│   │   └── tailwind.config.js
 │   └── cli/
 │       ├── src/
 │       │   ├── cli.ts           # Entry point, command routing
@@ -83,3 +92,7 @@ syncthis/
 | Bundler | [tsdown](https://github.com/sxzz/tsdown) |
 | Tests | [Vitest](https://vitest.dev) + [execa](https://github.com/sindresorhus/execa) |
 | Linting | [Biome](https://biomejs.dev) |
+| Desktop framework | [Electron](https://www.electronjs.org) 33 |
+| Desktop UI | [React](https://react.dev) 18 + [shadcn/ui](https://ui.shadcn.com) |
+| Desktop bundler | [Vite](https://vite.dev) 7 |
+| Desktop styling | [Tailwind CSS](https://tailwindcss.com) 3 |

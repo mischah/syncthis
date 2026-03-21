@@ -1,5 +1,7 @@
 # How It Works
 
+This describes the sync engine used by both the CLI and the desktop app.
+
 ## Sync cycle
 
 Every sync cycle follows these steps:

@@ -2,52 +2,41 @@
 
 This guide walks you through setting up **syncthis** to keep your [Obsidian](https://obsidian.md) vault in sync across multiple devices — from scratch, no prior experience needed.
 
-**What you'll end up with:** Your Obsidian notes automatically syncing to a private GitHub repository every 5 minutes, across all your devices.
+**What you'll end up with:** Your Obsidian notes automatically syncing to a private GitHub repository, across all your devices.
 
-**Time required:** About 15–20 minutes for the first device. 5 minutes for each additional device.
+**Time required:** About 10 minutes for the first device. 5 minutes for each additional device.
 
 ---
 
 ## Table of Contents
 
-1. [Open a Terminal](#1-open-a-terminal)
+1. [What Are Git and GitHub?](#1-what-are-git-and-github)
 2. [Install Git](#2-install-git)
-3. [Install Node.js](#3-install-nodejs)
-4. [Create a GitHub Account](#4-create-a-github-account)
-5. [Create a Private Repository](#5-create-a-private-repository)
-6. [Set Up SSH Access to GitHub](#6-set-up-ssh-access-to-github)
-7. [Install syncthis](#7-install-syncthis)
-8. [Initialize Your Vault](#8-initialize-your-vault)
-9. [Start Syncing](#9-start-syncing)
-10. [Set Up Your Second Device](#10-set-up-your-second-device)
-11. [Useful Commands](#11-useful-commands)
-12. [Troubleshooting](#12-troubleshooting)
+3. [Create a GitHub Account](#3-create-a-github-account)
+4. [Set Up with the Desktop App](#4-set-up-with-the-desktop-app)
+5. [Set Up Your Second Device](#5-set-up-your-second-device)
+6. [Alternative: Command Line Setup](#6-alternative-command-line-setup)
+7. [Troubleshooting](#7-troubleshooting)
 
 ---
 
-## 1. Open a Terminal
+## 1. What Are Git and GitHub?
 
-A terminal is a text-based interface where you type commands. You only need it for the initial setup — after that, syncthis runs silently in the background.
+**Git** is a version control system — think of it as a save-game system for your files. It keeps track of every change you've ever made, so you can always go back to a previous version.
 
-**macOS:**
-- Press **Cmd + Space** to open Spotlight, type **Terminal**, and press Enter.
-- Alternatively, open **Finder → Applications → Utilities → Terminal**.
+**GitHub** is an online service that stores your Git repositories in the cloud. It's where your notes live when they're being synced between devices — like a secure locker that all your devices can access.
 
-**Linux:**
-- Press **Ctrl + Alt + T** (works on most distributions).
-- Or search for "Terminal" in your application menu.
-
-You should see a window with a blinking cursor, waiting for you to type. This is where you'll run all the commands below.
-
-> **Tip:** You can copy commands from this guide and paste them into the terminal. On macOS, use **Cmd + V** to paste. On Linux, use **Ctrl + Shift + V**.
+You don't need to understand how Git or GitHub work in detail. syncthis handles all of that for you. You just need Git installed and a GitHub account.
 
 ---
 
 ## 2. Install Git
 
-Git is the version control system that syncthis uses under the hood to track and sync your files.
+Git is the engine that syncthis uses under the hood. You need it installed on every device you want to sync.
 
 **Check if Git is already installed:**
+
+Open a terminal (macOS: press **Cmd + Space**, type **Terminal**, press Enter — Linux: press **Ctrl + Alt + T**) and type:
 
 ```bash
 git --version
@@ -66,238 +55,100 @@ After installing, run `git --version` again to confirm.
 
 ---
 
-## 3. Install Node.js
+## 3. Create a GitHub Account
 
-syncthis is built with Node.js. You need version 20 or newer.
-
-**Check if Node.js is already installed:**
-
-```bash
-node --version
-```
-
-If you see `v20.x.x` or higher, you're good — skip to the next step.
-
-**If Node.js is not installed (or the version is too old):**
-
-1. Go to [nodejs.org](https://nodejs.org)
-2. Download the **LTS** (Long Term Support) version — it's the big green button.
-3. Run the installer and follow the prompts (the defaults are fine).
-4. **Close and reopen your terminal** for the changes to take effect.
-5. Run `node --version` again to confirm.
-
----
-
-## 4. Create a GitHub Account
-
-GitHub is where your vault will be stored (encrypted in transit and private by default). If you already have a GitHub account, skip to the next step.
+If you already have a GitHub account, skip to the next step.
 
 1. Go to [github.com/signup](https://github.com/signup)
 2. Follow the steps to create a free account.
 3. Verify your email address.
 
-That's it — a free account is all you need.
+That's all you need — a free account is sufficient.
 
 ---
 
-## 5. Create a Private Repository
+## 4. Set Up with the Desktop App
 
-A repository (or "repo") is a storage space on GitHub for your vault. We'll create a **private** one so only you can see your notes.
+The desktop app includes a setup wizard that handles everything for you — no terminal needed beyond installing Git.
 
-1. Go to [github.com/new](https://github.com/new) (or click the **+** button in the top-right corner of GitHub and select **New repository**).
-2. Fill in the form:
-   - **Repository name:** Choose something descriptive, e.g. `my-vault` or `obsidian-notes`.
-   - **Description:** Optional. E.g. "My Obsidian vault".
-   - **Visibility:** Select **Private**. This is important — it keeps your notes visible only to you.
-   - **Initialize this repository:** Leave all checkboxes **unchecked** (no README, no .gitignore, no license).
-3. Click **Create repository**.
+### Download and install
 
-You'll see a page with setup instructions. The important part is the SSH URL — it looks like:
+1. Go to the [syncthis Releases page](https://github.com/mischah/syncthis/releases) and download the latest version for your platform.
+2. Install the app:
+   - **macOS:** Open the DMG and drag syncthis to Applications. On first launch, right-click the app and select **Open** (required because the app is not signed with an Apple certificate).
+   - **Linux:** Install the `.deb` package or run the AppImage.
 
-```
-git@github.com:yourname/my-vault.git
-```
+### Run the setup wizard
 
-Copy this URL. You'll need it in step 8.
+When you launch syncthis for the first time, the setup wizard opens automatically:
 
-> **Detailed guide:** [Creating a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-new-repository) on GitHub Docs.
+1. **Connect GitHub** — Click the button to sign in with your GitHub account. This authorizes syncthis to create and access repositories on your behalf.
 
----
+   ![Connect with GitHub](images/wizard-first-step.png)
 
-## 6. Set Up SSH Access to GitHub
+2. **Choose a repository** — Select an existing repository or create a new private one for your vault.
 
-SSH lets your computer communicate securely with GitHub without entering your password every time. This is a one-time setup per device.
+   ![Choose a repository](images/wizard-choose-repo.png)
 
-### 6a. Check for an existing SSH key
+3. **Pick your vault folder** — Select the local Obsidian vault folder you want to sync.
 
-```bash
-ls ~/.ssh/id_ed25519.pub
-```
+4. **Done!** — Sync starts automatically. syncthis now runs in your menu bar and keeps your vault in sync.
 
-If you see a file path (no error), you already have an SSH key — skip to **6c**.
+   ![Setup complete](images/wizard-done.png)
 
-### 6b. Generate a new SSH key
+That's it. syncthis sits in your menu bar (macOS) or system tray (Linux) and syncs your vault in the background. You can click the tray icon anytime to see the current status:
 
-```bash
-ssh-keygen -t ed25519 -C "your-email@example.com"
-```
+![Tray Popover](images/popover-only.png)
 
-Replace `your-email@example.com` with the email you used for GitHub.
-
-- When asked where to save the file, press **Enter** to accept the default.
-- When asked for a passphrase, you can press **Enter** twice to skip it (or set one for extra security).
-
-### 6c. Copy your public key
-
-**macOS:**
-
-```bash
-cat ~/.ssh/id_ed25519.pub | pbcopy
-```
-
-This copies the key to your clipboard.
-
-**Linux:**
-
-```bash
-cat ~/.ssh/id_ed25519.pub
-```
-
-Select and copy the entire output (starts with `ssh-ed25519` and ends with your email).
-
-### 6d. Add the key to GitHub
-
-1. Go to [github.com/settings/keys](https://github.com/settings/keys)
-2. Click **New SSH key**.
-3. **Title:** Something to identify this device, e.g. "MacBook Pro" or "Work Laptop".
-4. **Key:** Paste the key you copied.
-5. Click **Add SSH key**.
-
-### 6e. Test the connection
-
-```bash
-ssh -T git@github.com
-```
-
-You should see: `Hi yourname! You've successfully authenticated...`
-
-If you see a question about the authenticity of the host, type `yes` and press Enter.
-
-> **Detailed guide:** [Connecting to GitHub with SSH](https://docs.github.com/en/authentication/connecting-to-github-with-ssh) on GitHub Docs.
+![Dashboard](images/detail-view-healthy-status.png)
 
 ---
 
-## 7. Install syncthis
+## 5. Set Up Your Second Device
 
-Now install syncthis globally so you can use it from anywhere:
+On each additional device:
+
+1. Install Git ([step 2](#2-install-git)).
+2. Download and install the syncthis desktop app ([step 4](#4-set-up-with-the-desktop-app)).
+3. Run the setup wizard — connect the same GitHub account and select the **same repository**.
+4. Choose where to put the vault folder on this device.
+
+syncthis clones your vault from GitHub and starts syncing. Open the folder in Obsidian, and you're done.
+
+---
+
+## 6. Alternative: Command Line Setup
+
+If you prefer the terminal, syncthis is also available as a CLI tool. This requires [Node.js](https://nodejs.org) ≥ 20 and [SSH access to GitHub](https://docs.github.com/en/authentication/connecting-to-github-with-ssh).
 
 ```bash
 npm install -g syncthis
-```
-
-Verify the installation:
-
-```bash
-syncthis --version
-```
-
-You should see a version number.
-
-> **Permission error on Linux?** If you get an `EACCES` error, see [Resolving npm permission errors](https://docs.npmjs.com/resolving-eacces-permissions-errors-when-installing-packages-globally).
-
----
-
-## 8. Initialize Your Vault
-
-Navigate to your Obsidian vault folder. This is the folder that contains your `.obsidian` directory and all your notes.
-
-```bash
 cd /path/to/your/obsidian-vault
-```
-
-**Not sure where your vault is?**
-- Open Obsidian → Settings (gear icon) → look at the vault path at the bottom of the left sidebar.
-- On macOS, vaults are often in `~/Documents/` or `~/`.
-- Example: `cd ~/Documents/MyVault`
-
-Now link your vault to your GitHub repository:
-
-```bash
 syncthis init --remote git@github.com:yourname/my-vault.git
-```
-
-Replace `yourname/my-vault.git` with the SSH URL from step 5.
-
-This will:
-- Initialize Git in your vault folder (if not already done).
-- Connect it to your GitHub repository.
-- Create a `.gitignore` with Obsidian-specific defaults.
-- Make an initial commit of all your files.
-- Create a `.syncthis.json` configuration file.
-
----
-
-## 9. Start Syncing
-
-```bash
 syncthis start
 ```
 
-That's it! syncthis is now running as a background service. It will:
-- Sync your vault every 5 minutes (default).
-- Start automatically when you log in (if your OS supports it).
-- Keep running even after you close the terminal.
-
-You can safely close the terminal now.
+See the [CLI documentation](../packages/cli/README.md) for the full reference.
 
 ---
 
-## 10. Set Up Your Second Device
+## 7. Troubleshooting
 
-On your other device(s), repeat steps 1–7 (install Git, Node.js, set up SSH, install syncthis). Then, instead of `init --remote`, use `--clone` to download your vault:
+### macOS: "syncthis is damaged and can't be opened" / app won't open
 
-```bash
-syncthis init --clone git@github.com:yourname/my-vault.git --path ~/Documents/MyVault
-syncthis start
-```
-
-This clones your vault from GitHub and starts syncing. Open the folder in Obsidian, and you're done.
-
----
-
-## 11. Useful Commands
-
-| Command | What it does |
-|---------|--------------|
-| `syncthis status` | Shows whether syncing is active, last sync time, and any issues. |
-| `syncthis stop` | Stops the background sync (your files stay as they are). |
-| `syncthis start` | Starts syncing again. |
-| `syncthis logs` | Shows recent sync activity. |
-| `syncthis logs --follow` | Shows live sync output (press Ctrl+C to stop watching). |
-
----
-
-## 12. Troubleshooting
-
-### "command not found: syncthis"
-
-Node.js or npm is not in your system PATH. Try closing and reopening your terminal. If that doesn't help, reinstall Node.js from [nodejs.org](https://nodejs.org).
-
-### "Permission denied (publickey)"
-
-Your SSH key is not set up correctly. Go back to [step 6](#6-set-up-ssh-access-to-github) and make sure you've added your key to GitHub.
-
-### "fatal: not a git repository"
-
-You're not in the right directory. Make sure you `cd` into your Obsidian vault folder before running syncthis commands.
-
-### "EACCES: permission denied" when installing
-
-On Linux, npm may not have permission to install globally. See [npm's guide on fixing permissions](https://docs.npmjs.com/resolving-eacces-permissions-errors-when-installing-packages-globally).
+The app is not signed with an Apple certificate. Right-click the app and select **Open** instead of double-clicking. macOS will ask for confirmation — click **Open** again. You only need to do this once.
 
 ### Sync conflicts
 
-If the same file was changed on two devices at the same time, syncthis creates a conflict copy (e.g. `note.conflict-2025-03-04T14-30-00.md`). Both versions are kept so you don't lose data. Open both files, merge the changes manually, and delete the conflict copy.
+If the same file was changed on two devices at the same time, syncthis detects the conflict. In the desktop app, you'll see a notification and can resolve it visually with a side-by-side diff. With the CLI, the default strategy keeps both versions as conflict copies (e.g. `note.conflict-2025-03-04T14-30-00.md`).
+
+### "command not found: syncthis" (CLI only)
+
+Node.js or npm is not in your system PATH. Try closing and reopening your terminal. If that doesn't help, reinstall Node.js from [nodejs.org](https://nodejs.org).
+
+### "Permission denied (publickey)" (CLI only)
+
+Your SSH key is not set up correctly. Follow [GitHub's SSH guide](https://docs.github.com/en/authentication/connecting-to-github-with-ssh).
 
 ### Need more help?
 
