@@ -12,8 +12,8 @@ const { version } = JSON.parse(readFileSync('./package.json', 'utf8'));
 const config: ForgeConfig = {
   packagerConfig: {
     asar: { unpack: '**/dugite/git/**' },
-    name: 'syncthis',
-    executableName: 'syncthis',
+    name: 'SyncThis',
+    executableName: 'SyncThis',
     appBundleId: 'com.syncthis.desktop',
     appCategoryType: 'public.app-category.productivity',
     icon: './resources/icon',
@@ -29,8 +29,8 @@ const config: ForgeConfig = {
   },
   rebuildConfig: {},
   makers: [
-    new MakerDMG({ name: `syncthis-${version}-mac` }, ['darwin']),
-    new MakerDeb({ options: { bin: 'syncthis' } }, ['linux']),
+    new MakerDMG({ name: `SyncThis-${version}-mac` }, ['darwin']),
+    new MakerDeb({ options: { bin: 'SyncThis' } }, ['linux']),
   ],
   hooks: {
     postMake: async (_config, results) => {
@@ -38,7 +38,7 @@ const config: ForgeConfig = {
         for (let i = 0; i < result.artifacts.length; i++) {
           const oldPath = result.artifacts[i];
           if (oldPath.endsWith('.deb')) {
-            const newPath = join(dirname(oldPath), `syncthis-${version}-linux.deb`);
+            const newPath = join(dirname(oldPath), `SyncThis-${version}-linux.deb`);
             renameSync(oldPath, newPath);
             result.artifacts[i] = newPath;
           }
