@@ -39,19 +39,38 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Upload coverage reports to Codecov
+      - name: Upload CLI coverage to Codecov
         if: matrix.os == 'ubuntu-latest'
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: packages/cli/coverage/lcov.info
+          flags: cli
           disable_search: true
 
-      - name: Coverage Report
+      - name: Upload GUI coverage to Codecov
+        if: matrix.os == 'ubuntu-latest'
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: packages/gui/coverage/lcov.info
+          flags: gui
+          disable_search: true
+
+      - name: Coverage Report (CLI)
         if: matrix.os == 'ubuntu-latest' && github.event_name == 'pull_request'
         uses: davelosert/vitest-coverage-report-action@v2
         with:
           working-directory: packages/cli
+          name: CLI Coverage
+          threshold-icons: "{0: '🔴', 70: '🟠', 85: '🟢'}"
+
+      - name: Coverage Report (GUI)
+        if: matrix.os == 'ubuntu-latest' && github.event_name == 'pull_request'
+        uses: davelosert/vitest-coverage-report-action@v2
+        with:
+          working-directory: packages/gui
+          name: GUI Coverage
           threshold-icons: "{0: '🔴', 70: '🟠', 85: '🟢'}"
 
       - name: Build

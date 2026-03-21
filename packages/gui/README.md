@@ -1,3 +1,5 @@
+[![codecov](https://codecov.io/gh/mischah/syncthis/branch/main/graph/badge.svg?flag=gui)](https://codecov.io/gh/mischah/syncthis)
+
 # syncthis desktop
 
 syncthis desktop — a tray app for automatic folder sync via Git. Runs as a menu bar (macOS) / system tray (Linux) app with a popover and dashboard window.

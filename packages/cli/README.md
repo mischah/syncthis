@@ -1,7 +1,7 @@
 [![npm version](https://img.shields.io/npm/v/syncthis.svg)](https://www.npmjs.com/package/syncthis)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/mischah/syncthis/blob/main/LICENSE)
 [![CI](https://github.com/mischah/syncthis/actions/workflows/ci.yml/badge.svg)](https://github.com/mischah/syncthis/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/mischah/syncthis/branch/main/graph/badge.svg)](https://codecov.io/gh/mischah/syncthis)
+[![codecov](https://codecov.io/gh/mischah/syncthis/branch/main/graph/badge.svg?flag=cli)](https://codecov.io/gh/mischah/syncthis)
 
 # syncthis
 

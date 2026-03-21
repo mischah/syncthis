@@ -4,7 +4,7 @@
   "scripts": {
     "build": "npm run build -w packages/cli",
     "typecheck": "npm run typecheck -w packages/shared && npm run typecheck -w packages/cli && npx tsc --noEmit -p packages/gui/tsconfig.json",
-    "test": "npm run test -w packages/cli",
+    "test": "npm run test -w packages/cli && npm run test -w packages/gui",
     "dev": "npm run dev -w packages/cli",
     "dev:cli": "npm run dev -w packages/cli",
     "dev:gui": "npm run dev -w packages/gui",
