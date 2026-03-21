@@ -1,6 +1,7 @@
 [![GitHub Release](https://img.shields.io/github/v/release/mischah/syncthis)](https://github.com/mischah/syncthis/releases)
 [![CI](https://github.com/mischah/syncthis/actions/workflows/ci.yml/badge.svg)](https://github.com/mischah/syncthis/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-pink?logo=github)](https://github.com/sponsors/mischah)
 
 # <img src="packages/gui/resources/icons/icon-64.png" width="32" height="32" valign="middle" alt="syncthis icon" /> syncthis
 
@@ -74,6 +75,15 @@ On a configurable schedule (default: every 5 minutes), syncthis commits local ch
 - [Conflict Strategies](docs/Conflict-Strategies.md) — How conflicts are handled
 - [How It Works](docs/How-It-Works.md) — Sync cycle and service lifecycle
 - [Development](docs/Development.md) — Dev setup and project structure
+
+---
+
+## Support
+
+If you find syncthis useful, consider supporting its development:
+
+- [GitHub Sponsors](https://github.com/sponsors/mischah)
+- [PayPal](https://paypal.me/dazzlingtone)
 
 ---
 

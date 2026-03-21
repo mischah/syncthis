@@ -1,4 +1,5 @@
 [![codecov](https://codecov.io/gh/mischah/syncthis/branch/main/graph/badge.svg?flag=gui)](https://codecov.io/gh/mischah/syncthis)
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-pink?logo=github)](https://github.com/sponsors/mischah)
 
 # syncthis desktop
 
@@ -60,3 +61,10 @@ npm run generate:app-icon -w packages/gui
 rm -rf packages/gui/node_modules/.vite
 npm run dev:gui
 ```
+
+## Support
+
+If you find syncthis useful, consider supporting its development:
+
+- [GitHub Sponsors](https://github.com/sponsors/mischah)
+- [PayPal](https://paypal.me/dazzlingtone)

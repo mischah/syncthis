@@ -2,6 +2,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/mischah/syncthis/blob/main/LICENSE)
 [![CI](https://github.com/mischah/syncthis/actions/workflows/ci.yml/badge.svg)](https://github.com/mischah/syncthis/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/mischah/syncthis/branch/main/graph/badge.svg?flag=cli)](https://codecov.io/gh/mischah/syncthis)
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-pink?logo=github)](https://github.com/sponsors/mischah)
 
 # syncthis
 
@@ -270,6 +271,15 @@ Use `syncthis logs` or `syncthis logs --follow` as a shortcut to read them.
 ## Desktop App
 
 A desktop GUI is also available — see the [syncthis repository](https://github.com/mischah/syncthis) for details.
+
+---
+
+## Support
+
+If you find syncthis useful, consider supporting its development:
+
+- [GitHub Sponsors](https://github.com/sponsors/mischah)
+- [PayPal](https://paypal.me/dazzlingtone)
 
 ---
 
