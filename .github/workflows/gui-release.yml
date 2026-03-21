@@ -70,5 +70,8 @@ jobs:
           if [ -z "$TAG" ]; then
             TAG=$(gh release list --limit 1 --json tagName --jq '.[0].tagName')
           fi
-          find packages/gui/out/make -type f \( -name "*.dmg" -o -name "*.deb" \) -print0 \
-            | xargs -0 gh release upload "$TAG" --clobber
+          for asset in $(find packages/gui/out/make -type f \( -name "*.dmg" -o -name "*.deb" \)); do
+            name=$(basename "$asset")
+            gh release delete-asset "$TAG" "$name" --yes 2>/dev/null || true
+            gh release upload "$TAG" "$asset"
+          done
