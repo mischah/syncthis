@@ -10,6 +10,7 @@ vi.mock('../../src/notify/desktop.js', () => ({
 }));
 
 import { sendDesktopNotification } from '../../src/notify/desktop.js';
+
 const mockSendDesktop = vi.mocked(sendDesktopNotification);
 
 const ISO_RE = /^\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\]/;

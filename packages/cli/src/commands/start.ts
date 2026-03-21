@@ -1,11 +1,11 @@
 import { execFile } from 'node:child_process';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
-import { type SyncthisConfig, loadConfig, mergeWithFlags } from '../config.js';
+import { loadConfig, mergeWithFlags, type SyncthisConfig } from '../config.js';
 import { updateHealthAfterCycle } from '../health.js';
 import { type BatchData, printJson, printJsonError } from '../json-output.js';
 import { acquireLock, readLockFile, releaseLock } from '../lock.js';
-import { type LogLevel, createLogger } from '../logger.js';
+import { createLogger, type LogLevel } from '../logger.js';
 import { type SchedulerHandle, startScheduler } from '../scheduler.js';
 import { runSyncCycle } from '../sync.js';
 import type { BatchResult } from './daemon.js';

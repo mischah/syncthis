@@ -12,7 +12,12 @@
 
 .activity-list--overflows {
   mask-image: linear-gradient(transparent, black 16px, black calc(100% - 16px), transparent);
-  -webkit-mask-image: linear-gradient(transparent, black 16px, black calc(100% - 16px), transparent);
+  -webkit-mask-image: linear-gradient(
+    transparent,
+    black 16px,
+    black calc(100% - 16px),
+    transparent
+  );
 }
 
 .activity-entry {

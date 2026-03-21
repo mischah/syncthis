@@ -1,6 +1,8 @@
 {
   "private": true,
-  "workspaces": ["packages/*"],
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "build": "npm run build -w packages/cli",
     "typecheck": "npm run typecheck -w packages/shared && npm run typecheck -w packages/cli && npx tsc --noEmit -p packages/gui/tsconfig.json",

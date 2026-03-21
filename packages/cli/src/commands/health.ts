@@ -1,6 +1,6 @@
 import { loadConfig } from '../config.js';
 import { getPlatform } from '../daemon/platform.js';
-import { type HealthCheckResult, determineHealth } from '../health-check.js';
+import { determineHealth, type HealthCheckResult } from '../health-check.js';
 import { type HealthData, printJson, printJsonError } from '../json-output.js';
 
 export interface HealthFlags {

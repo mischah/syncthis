@@ -5,6 +5,7 @@ import { basename, join } from 'node:path';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
+
 import type {
   AppSettings,
   FolderDetail,
@@ -13,7 +14,7 @@ import type {
   LogEntry,
   ServiceStatus,
 } from '@syncthis/shared';
-import { BrowserWindow, app, dialog, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import { loadConfig, writeConfig } from '../../../cli/src/config.js';
 import { determineHealth } from '../../../cli/src/health-check.js';
 import { createLogger } from '../../../cli/src/logger.js';

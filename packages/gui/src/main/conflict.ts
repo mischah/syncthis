@@ -37,6 +37,7 @@ async function getGitStageBuffer(dirPath: string, stage: 2 | 3, filePath: string
   );
   return stdout;
 }
+
 import { diffWords, structuredPatch } from 'diff';
 import { generateConflictFilename } from '../../../cli/src/conflict/conflict-filename.js';
 import { applyHunkDecisions } from '../../../cli/src/conflict/hunk-resolver.js';

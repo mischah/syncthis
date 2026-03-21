@@ -1,8 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Cron } from 'croner';
-
 import type { CliFlags, SyncthisConfig } from '@syncthis/shared';
+import { Cron } from 'croner';
 
 export type { CliFlags, ConflictStrategy, SyncthisConfig } from '@syncthis/shared';
 

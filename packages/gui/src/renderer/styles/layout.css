@@ -316,7 +316,9 @@ body,
 .view-transition {
   flex: 1;
   min-height: 0;
-  transition: transform 150ms ease-out, opacity 150ms ease-out;
+  transition:
+    transform 150ms ease-out,
+    opacity 150ms ease-out;
 }
 
 .view-exit-slide-left {

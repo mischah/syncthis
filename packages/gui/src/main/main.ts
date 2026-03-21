@@ -1,4 +1,4 @@
-import { Menu, app } from 'electron';
+import { app, Menu } from 'electron';
 import { loadAppSettings } from './app-settings.js';
 import { ensureCliBundled } from './cli-bundler.js';
 import { initGitProvider } from './git-provider.js';

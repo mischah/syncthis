@@ -3,12 +3,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  createDefaultConfig,
   DEFAULT_BRANCH,
   DEFAULT_CRON,
-  type SyncthisConfig,
-  createDefaultConfig,
   loadConfig,
   mergeWithFlags,
+  type SyncthisConfig,
   validateConfig,
   writeConfig,
 } from '../../src/config.js';

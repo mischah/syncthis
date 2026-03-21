@@ -12,7 +12,9 @@
   "bin": {
     "syncthis": "./dist/cli.js"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "engines": {
     "node": ">=20.0.0"
   },
@@ -26,7 +28,14 @@
     "release": "np",
     "release:preview": "np --preview"
   },
-  "keywords": ["git", "sync", "cli", "obsidian", "backup", "auto-commit"],
+  "keywords": [
+    "git",
+    "sync",
+    "cli",
+    "obsidian",
+    "backup",
+    "auto-commit"
+  ],
   "license": "MIT",
   "dependencies": {
     "@syncthis/shared": "*",

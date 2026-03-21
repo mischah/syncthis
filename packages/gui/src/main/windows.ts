@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { BrowserWindow, app, nativeTheme } from 'electron';
+import { app, BrowserWindow, nativeTheme } from 'electron';
 
 declare const DASHBOARD_VITE_DEV_SERVER_URL: string;
 declare const DASHBOARD_VITE_NAME: string;
