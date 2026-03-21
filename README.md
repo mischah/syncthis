@@ -2,7 +2,7 @@
 [![CI](https://github.com/mischah/syncthis/actions/workflows/ci.yml/badge.svg)](https://github.com/mischah/syncthis/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-# syncthis
+# <img src="packages/gui/resources/icons/icon-64.png" width="32" height="32" valign="middle" alt="syncthis icon" /> syncthis
 
 > Automatic directory synchronization via Git.
 
