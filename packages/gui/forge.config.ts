@@ -1,9 +1,13 @@
+import { readFileSync } from 'node:fs';
+import { arch } from 'node:os';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
 import { MakerDeb } from '@electron-forge/maker-deb';
 import { MakerDMG } from '@electron-forge/maker-dmg';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import type { ForgeConfig } from '@electron-forge/shared-types';
+
+const { version } = JSON.parse(readFileSync('./package.json', 'utf8'));
 
 const config: ForgeConfig = {
   packagerConfig: {
@@ -16,7 +20,10 @@ const config: ForgeConfig = {
     extraResource: ['resources/tray', '../cli/dist'],
   },
   rebuildConfig: {},
-  makers: [new MakerDMG({}, ['darwin']), new MakerDeb({}, ['linux'])],
+  makers: [
+    new MakerDMG({ name: `syncthis-${version}-mac-${arch()}` }, ['darwin']),
+    new MakerDeb({}, ['linux']),
+  ],
   plugins: [
     new VitePlugin({
       build: [
