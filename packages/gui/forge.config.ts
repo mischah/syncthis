@@ -32,11 +32,12 @@ const config: ForgeConfig = {
     new MakerDMG(
       {
         name: `SyncThis-${version}-mac`,
-        background: './resources/dmg/dmg-background@2x.png',
+        icon: './resources/icon.icns',
+        background: './resources/dmg/dmg-background.png',
         iconSize: 80,
         contents: (opts) => [
-          { x: 190, y: 200, type: 'file', path: opts.appPath },
-          { x: 470, y: 200, type: 'link', path: '/Applications' },
+          { x: 190, y: 180, type: 'file', path: opts.appPath },
+          { x: 470, y: 180, type: 'link', path: '/Applications' },
         ],
         additionalDMGOptions: {
           window: { size: { width: 660, height: 400 } },
