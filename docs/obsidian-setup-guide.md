@@ -77,7 +77,7 @@ The desktop app includes a setup wizard that handles everything for you — no t
 
 1. Go to the [syncthis Releases page](https://github.com/mischah/syncthis/releases) and download the latest version for your platform.
 2. Install the app:
-   - **macOS:** Open the DMG and drag syncthis to Applications. On first launch, right-click the app and select **Open** (required because the app is not signed with an Apple certificate).
+   - **macOS:** Open the DMG and drag syncthis to Applications. If macOS blocks the app with a "damaged" error, see the Troubleshooting section below.
    - **Linux:** Install the `.deb` package or run the AppImage.
 
 ### Run the setup wizard
@@ -137,7 +137,11 @@ See the [CLI documentation](../packages/cli/README.md) for the full reference.
 
 ### macOS: "syncthis is damaged and can't be opened" / app won't open
 
-The app is not signed with an Apple certificate. Right-click the app and select **Open** instead of double-clicking. macOS will ask for confirmation — click **Open** again. You only need to do this once.
+The app is not signed with an Apple certificate. Run the following command in Terminal to remove the quarantine flag, then try opening the app again:
+
+```bash
+xattr -cr /Applications/syncthis.app
+```
 
 ### Sync conflicts
 
