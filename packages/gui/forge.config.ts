@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, renameSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
 import { MakerDeb } from '@electron-forge/maker-deb';
 import { MakerDMG } from '@electron-forge/maker-dmg';
@@ -23,6 +24,21 @@ const config: ForgeConfig = {
     new MakerDMG({ name: `syncthis-${version}-mac` }, ['darwin']),
     new MakerDeb({ options: { bin: 'syncthis' } }, ['linux']),
   ],
+  hooks: {
+    postMake: async (_config, results) => {
+      for (const result of results) {
+        for (let i = 0; i < result.artifacts.length; i++) {
+          const oldPath = result.artifacts[i];
+          if (oldPath.endsWith('.deb')) {
+            const newPath = join(dirname(oldPath), `syncthis-${version}-linux.deb`);
+            renameSync(oldPath, newPath);
+            result.artifacts[i] = newPath;
+          }
+        }
+      }
+      return results;
+    },
+  },
   plugins: [
     new VitePlugin({
       build: [

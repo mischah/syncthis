@@ -1,7 +1,7 @@
 {
   "name": "syncthis-gui",
   "productName": "syncthis",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Desktop GUI for syncthis",
   "main": ".vite/build/main.js",
   "private": true,
