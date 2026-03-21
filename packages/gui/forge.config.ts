@@ -13,7 +13,7 @@ const config: ForgeConfig = {
     appBundleId: 'com.syncthis.desktop',
     appCategoryType: 'public.app-category.productivity',
     icon: './resources/icon',
-    extraResource: ['resources/tray'],
+    extraResource: ['resources/tray', '../cli/dist'],
   },
   rebuildConfig: {},
   makers: [new MakerDMG({}, ['darwin']), new MakerDeb({}, ['linux'])],

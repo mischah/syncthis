@@ -10,7 +10,7 @@ export async function ensureCliBundled(): Promise<void> {
   await mkdir(INSTALL_DIR, { recursive: true });
 
   const source = app.isPackaged
-    ? join(process.resourcesPath, 'cli', 'cli.js')
+    ? join(process.resourcesPath, 'dist', 'cli.js')
     : join(__dirname, '..', '..', '..', 'cli', 'dist', 'cli.js');
 
   const escaped = source.replace(/'/g, "\\'");
