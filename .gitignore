@@ -1,7 +1,11 @@
 node_modules
 dist
+.vite
+out
+*.tsbuildinfo
 coverage
 .syncthis
 .claude
 .DS_Store
 demo/*.png
+.env

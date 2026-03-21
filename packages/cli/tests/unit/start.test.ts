@@ -165,7 +165,7 @@ describe('handleStart – ask + non-TTY (daemon) conflict handling', () => {
       .mockResolvedValue({ status: 'conflict', error: 'Rebase in progress' }); // scheduler
 
     await handleStart(FOREGROUND_FLAGS);
-    await capturedSchedulerCallback!();
+    await capturedSchedulerCallback?.();
 
     expect(mockExit).not.toHaveBeenCalled();
     expect(mockReleaseLock).not.toHaveBeenCalledTimes(2);
@@ -194,7 +194,7 @@ describe('handleStart – ask + TTY conflict → exits as before', () => {
       .mockResolvedValue({ status: 'conflict' });
 
     await handleStart(FOREGROUND_FLAGS);
-    await expect(capturedSchedulerCallback!()).rejects.toThrow('process.exit(1)');
+    await expect(capturedSchedulerCallback?.()).rejects.toThrow('process.exit(1)');
 
     expect(mockExit).toHaveBeenCalledWith(1);
   });
@@ -217,7 +217,7 @@ describe('handleStart – stop/auto-both + conflict → exits as before', () => 
       .mockResolvedValue({ status: 'conflict' });
 
     await handleStart(FOREGROUND_FLAGS);
-    await expect(capturedSchedulerCallback!()).rejects.toThrow('process.exit(1)');
+    await expect(capturedSchedulerCallback?.()).rejects.toThrow('process.exit(1)');
 
     expect(mockExit).toHaveBeenCalledWith(1);
   });
@@ -228,7 +228,7 @@ describe('handleStart – stop/auto-both + conflict → exits as before', () => 
       .mockResolvedValue({ status: 'conflict' });
 
     await handleStart(FOREGROUND_FLAGS);
-    await expect(capturedSchedulerCallback!()).rejects.toThrow('process.exit(1)');
+    await expect(capturedSchedulerCallback?.()).rejects.toThrow('process.exit(1)');
 
     expect(mockExit).toHaveBeenCalledWith(1);
   });

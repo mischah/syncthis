@@ -1,19 +1,37 @@
 codecov:
   notify:
-    after_n_builds: 1  # only 1 upload (ubuntu-latest)
+    after_n_builds: 2  # cli + gui uploads (ubuntu-latest only)
 
 coverage:
   status:
     project:
-      default:
+      cli:
         target: auto
         threshold: 2%
+        flags: [cli]
+      gui:
+        target: auto
+        threshold: 2%
+        flags: [gui]
     patch:
-      default:
+      cli:
         target: 70%
+        flags: [cli]
+      gui:
+        target: 50%
+        flags: [gui]
+
+flags:
+  cli:
+    paths:
+      - packages/cli/
+  gui:
+    paths:
+      - packages/gui/
 
 ignore:
   # already excluded in vitest.config.ts coverage settings,
   # but Codecov doesn't pick up those excludes automatically
   - "packages/cli/src/cli.ts"
   - "packages/cli/src/commands/start.ts"
+  - "packages/gui/src/main/main.ts"

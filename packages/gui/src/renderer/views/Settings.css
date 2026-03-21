@@ -1,0 +1,368 @@
+.settings-view {
+  max-width: 640px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  height: 100%;
+  overflow-y: auto;
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.settings-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.settings-loading {
+  height: 200px;
+}
+
+/* Form */
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.settings-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: var(--space-8);
+}
+
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.settings-fieldset {
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.settings-fieldset > legend {
+  padding: 0;
+  margin-bottom: var(--space-1);
+}
+
+.settings-field--row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: inline-block;
+  margin-right: var(--space-2);
+}
+
+.settings-description {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.settings-hint-text {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.settings-error-text {
+  font-size: 12px;
+  color: var(--status-error);
+}
+
+.settings-error-text--indented {
+  padding-left: 22px;
+}
+
+/* Remote */
+
+.settings-remote-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.settings-remote-value {
+  font-size: 13px;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+/* Inputs */
+
+.settings-input {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-sans);
+  outline: none;
+  transition: border-color 150ms ease;
+}
+
+.settings-input:focus {
+  border-color: var(--accent);
+}
+
+.settings-input--mono {
+  font-family: var(--font-mono);
+}
+
+.settings-textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.settings-link-button {
+  all: unset;
+  cursor: pointer;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.settings-link-button:hover {
+  opacity: 0.75;
+}
+
+.settings-input--narrow {
+  width: 64px;
+  text-align: right;
+}
+
+.settings-input--error {
+  border-color: var(--status-error);
+}
+
+/* Select */
+
+.settings-select {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-sans);
+  outline: none;
+  cursor: pointer;
+}
+
+.settings-select--full {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+}
+
+/* Radio group */
+
+.settings-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.settings-radio-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.settings-radio-option input[type="radio"] {
+  accent-color: var(--accent);
+}
+
+.settings-cron-input-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-left: 22px;
+}
+
+/* Switch */
+
+.settings-switch {
+  position: relative;
+  display: inline-flex;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.settings-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.settings-switch-track {
+  width: 36px;
+  height: 20px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-default);
+  position: relative;
+  transition: background 150ms ease;
+}
+
+.settings-switch-track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  transition: transform 150ms ease, background 150ms ease;
+}
+
+.settings-switch input:checked + .settings-switch-track {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.settings-switch input:checked + .settings-switch-track::after {
+  transform: translateX(16px);
+  background: #ffffff;
+}
+
+/* Save */
+
+.settings-save-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Tabs */
+
+.settings-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-default);
+  margin-bottom: 0;
+}
+
+.settings-tab {
+  padding: var(--space-2) var(--space-3);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+  font-family: var(--font-sans);
+}
+
+.settings-tab:hover {
+  color: var(--text-primary);
+}
+
+.settings-tab--active {
+  color: var(--text-primary);
+  border-bottom-color: var(--accent);
+}
+
+/* Section title */
+
+.settings-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0;
+}
+
+/* Interval row */
+
+.settings-interval-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* GitHub auth flow */
+
+.github-auth-loading {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-4) 0;
+}
+
+.github-auth-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-default);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: github-spin 0.7s linear infinite;
+}
+
+@keyframes github-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.github-auth-flow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.github-auth-code {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.github-auth-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.github-auth-waiting {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.github-auth-error {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.github-auth-error-actions {
+  display: flex;
+  gap: var(--space-2);
+}

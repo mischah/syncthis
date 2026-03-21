@@ -22,15 +22,14 @@
     "test": "vitest run --coverage",
     "test:watch": "vitest --coverage",
     "typecheck": "tsc --noEmit",
-    "prepack": "npm run build && cp ../../README.md ./README.md",
-    "postpack": "rm ./README.md",
+    "prepack": "npm run build && cp ./README.md ./dist/README.md",
     "release": "np",
-    "prerelease:preview": "npm run prerelease",
     "release:preview": "np --preview"
   },
   "keywords": ["git", "sync", "cli", "obsidian", "backup", "auto-commit"],
   "license": "MIT",
   "dependencies": {
+    "@syncthis/shared": "*",
     "@clack/prompts": "1.1.0",
     "chalk": "5.6.2",
     "croner": "10.0.1",

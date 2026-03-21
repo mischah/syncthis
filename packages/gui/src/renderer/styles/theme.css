@@ -1,0 +1,65 @@
+:root {
+  /* Neutral ramp (warm stone) — light mode */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f9f8f6;
+  --bg-tertiary: #f2f0ed;
+  --bg-elevated: #ffffff;
+  --border-default: #e8e6e1;
+  --border-subtle: #f0eeea;
+  --text-primary: #1a1918;
+  --text-secondary: #6f6d66;
+  --text-tertiary: #a3a19a;
+
+  /* Semantic colors */
+  --status-healthy: #3d8b5e;
+  --status-healthy-bg: #eef6f1;
+  --status-warning: #c08a2e;
+  --status-warning-bg: #fbf4e4;
+  --status-error: #c4422b;
+  --status-error-bg: #fcf0ed;
+  --accent: #4a7bdb;
+  --accent-bg: #edf2fc;
+
+  /* Typography */
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "Cascadia Code", ui-monospace, monospace;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Radii */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-pill: 9999px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-primary: #1a1918;
+    --bg-secondary: #212120;
+    --bg-tertiary: #2a2928;
+    --bg-elevated: #2a2928;
+    --border-default: #333230;
+    --border-subtle: #2a2928;
+    --text-primary: #e8e6e1;
+    --text-secondary: #9c9a93;
+    --text-tertiary: #6f6d66;
+
+    --status-healthy: #5ab87a;
+    --status-healthy-bg: #1e2b22;
+    --status-warning: #d4a03c;
+    --status-warning-bg: #2b2518;
+    --status-error: #e05a42;
+    --status-error-bg: #2e1f1b;
+    --accent: #6b9aef;
+    --accent-bg: #1e2433;
+  }
+}

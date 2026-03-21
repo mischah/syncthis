@@ -2,7 +2,6 @@
 
 These features are intentionally out of scope for now but may be explored later:
 
-- **GUI** — A desktop app (`packages/gui`) that wraps the CLI as a subprocess (Electron / Tauri / web-based).
 - **File watcher** — Trigger a sync immediately on file changes via `fs.watch`, instead of waiting for the next scheduled cycle.
 - **Log rotation** — Automatically rotate or clean up log files by size or age.
 - **Conflict cleanup** — A `syncthis cleanup` command to remove `.conflict-*` files from the directory (conflict copies are intentionally committed and synced to all devices so you can review them anywhere).
