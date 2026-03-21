@@ -25,6 +25,7 @@
     "test:watch": "vitest --coverage",
     "typecheck": "tsc --noEmit",
     "prepack": "npm run build && cp ./README.md ./dist/README.md",
+    "version": "npm pkg set version=$npm_package_version --prefix ../shared && npm pkg set version=$npm_package_version --prefix ../gui && git add ../shared/package.json ../gui/package.json",
     "release": "np",
     "release:preview": "np --preview"
   },
