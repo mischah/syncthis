@@ -1,5 +1,4 @@
 import { readFileSync } from 'node:fs';
-import { arch } from 'node:os';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
 import { MakerDeb } from '@electron-forge/maker-deb';
 import { MakerDMG } from '@electron-forge/maker-dmg';
@@ -21,7 +20,7 @@ const config: ForgeConfig = {
   },
   rebuildConfig: {},
   makers: [
-    new MakerDMG({ name: `syncthis-${version}-mac-${arch()}` }, ['darwin']),
+    new MakerDMG({ name: `syncthis-${version}-mac` }, ['darwin']),
     new MakerDeb({ options: { bin: 'syncthis' } }, ['linux']),
   ],
   plugins: [
