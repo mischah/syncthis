@@ -1,14 +1,74 @@
 import type { UpdateInfo } from '@syncthis/shared';
-import { BrowserWindow, Notification, net, shell } from 'electron';
+import { autoUpdater, BrowserWindow, Notification, net, shell } from 'electron';
+
 import { loadAppSettings } from './app-settings.js';
 
 export type { UpdateInfo };
 
-const GITHUB_RELEASES_URL = 'https://api.github.com/repos/mischah/syncthis/releases/latest';
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+// ---------------------------------------------------------------------------
+// Shared helpers
+// ---------------------------------------------------------------------------
+
+function broadcastUpdate(info: UpdateInfo): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    win.webContents.send('update:available', info);
+  }
+}
+
+export function openReleasePage(url: string): void {
+  void shell.openExternal(url);
+}
+
+export function quitAndInstall(): void {
+  autoUpdater.quitAndInstall();
+}
+
+// ---------------------------------------------------------------------------
+// macOS — native Squirrel auto-updater via update.electronjs.org
+// ---------------------------------------------------------------------------
 
 /** Versions for which the native notification has already been shown this session. */
 const notifiedVersions = new Set<string>();
+
+function startMacUpdater(currentVersion: string): void {
+  const feedUrl = `https://update.electronjs.org/mischah/syncthis/${process.platform}-${process.arch}/${currentVersion}`;
+  autoUpdater.setFeedURL({ url: feedUrl });
+
+  autoUpdater.on('update-downloaded', (_event, _releaseNotes, releaseName) => {
+    const version = (releaseName ?? '').replace(/^v/, '') || 'unknown';
+    const info: UpdateInfo = {
+      version,
+      releaseUrl: `https://github.com/mischah/syncthis/releases/tag/v${version}`,
+      publishedAt: new Date().toISOString(),
+      downloaded: true,
+    };
+
+    broadcastUpdate(info);
+
+    if (!notifiedVersions.has(version)) {
+      notifiedVersions.add(version);
+      new Notification({
+        title: 'syncthis update ready',
+        body: `Version ${version} has been downloaded. Restart to update.`,
+      }).show();
+    }
+  });
+
+  autoUpdater.on('error', (err) => {
+    console.error('[updater] autoUpdater error:', err.message);
+  });
+
+  autoUpdater.checkForUpdates();
+  setInterval(() => autoUpdater.checkForUpdates(), CHECK_INTERVAL_MS);
+}
+
+// ---------------------------------------------------------------------------
+// Linux — GitHub API polling (autoUpdater not supported)
+// ---------------------------------------------------------------------------
+
+const GITHUB_RELEASES_URL = 'https://api.github.com/repos/mischah/syncthis/releases/latest';
 
 function compareSemver(a: string, b: string): number {
   const parse = (v: string) => v.split('.').map(Number);
@@ -38,17 +98,7 @@ export async function checkForUpdate(currentVersion: string): Promise<UpdateInfo
   }
 }
 
-export function openReleasePage(url: string): void {
-  void shell.openExternal(url);
-}
-
-function broadcastUpdateAvailable(info: UpdateInfo): void {
-  for (const win of BrowserWindow.getAllWindows()) {
-    win.webContents.send('update:available', info);
-  }
-}
-
-export function startUpdateChecker(currentVersion: string): void {
+function startLinuxUpdater(currentVersion: string): void {
   const check = async () => {
     const info = await checkForUpdate(currentVersion);
     if (!info) return;
@@ -56,7 +106,7 @@ export function startUpdateChecker(currentVersion: string): void {
     const settings = await loadAppSettings();
     if (settings.dismissedUpdateVersion === info.version) return;
 
-    broadcastUpdateAvailable(info);
+    broadcastUpdate(info);
 
     if (!notifiedVersions.has(info.version)) {
       notifiedVersions.add(info.version);
@@ -73,4 +123,16 @@ export function startUpdateChecker(currentVersion: string): void {
 
   void check();
   setInterval(() => void check(), CHECK_INTERVAL_MS);
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+export function startUpdateChecker(currentVersion: string): void {
+  if (process.platform === 'darwin') {
+    startMacUpdater(currentVersion);
+  } else {
+    startLinuxUpdater(currentVersion);
+  }
 }
