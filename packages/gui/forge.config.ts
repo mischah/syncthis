@@ -22,7 +22,7 @@ const config: ForgeConfig = {
   rebuildConfig: {},
   makers: [
     new MakerDMG({ name: `syncthis-${version}-mac-${arch()}` }, ['darwin']),
-    new MakerDeb({}, ['linux']),
+    new MakerDeb({ options: { bin: 'syncthis' } }, ['linux']),
   ],
   plugins: [
     new VitePlugin({
