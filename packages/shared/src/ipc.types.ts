@@ -46,6 +46,7 @@ export interface UpdateInfo {
   version: string;
   releaseUrl: string;
   publishedAt: string;
+  downloaded?: boolean;
 }
 
 export interface AppSettings {
@@ -217,6 +218,7 @@ export interface IpcChannels {
   'app:check-update': { args: undefined; result: UpdateInfo | null };
   'app:dismiss-update': { args: { version: string }; result: undefined };
   'app:open-release-page': { args: { url: string }; result: undefined };
+  'app:restart-and-update': { args: undefined; result: undefined };
   'app:get-version': { args: undefined; result: string };
   'app:open-dashboard': {
     args: { view?: string; activeFolderPath?: string } | undefined;

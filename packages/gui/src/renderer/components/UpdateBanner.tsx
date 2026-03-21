@@ -8,10 +8,14 @@ export function UpdateBanner() {
 
   if (!updateAvailable) return null;
 
-  const { releaseUrl, version } = updateAvailable;
+  const { releaseUrl, version, downloaded } = updateAvailable;
 
-  function handleDownload() {
-    void window.syncthis.invoke('app:open-release-page', { url: releaseUrl });
+  function handleAction() {
+    if (downloaded) {
+      void window.syncthis.invoke('app:restart-and-update', undefined);
+    } else {
+      void window.syncthis.invoke('app:open-release-page', { url: releaseUrl });
+    }
   }
 
   function handleDismiss() {
@@ -33,10 +37,12 @@ export function UpdateBanner() {
         fontSize: 13,
       }}
     >
-      <span style={{ flex: 1 }}>{t('update.banner', { version: updateAvailable.version })}</span>
+      <span style={{ flex: 1 }}>
+        {downloaded ? t('update.banner_ready', { version }) : t('update.banner', { version })}
+      </span>
       <button
         type="button"
-        onClick={handleDownload}
+        onClick={handleAction}
         style={{
           background: 'none',
           border: 'none',
@@ -48,7 +54,7 @@ export function UpdateBanner() {
           textDecoration: 'underline',
         }}
       >
-        {t('update.download')}
+        {downloaded ? t('update.restart') : t('update.download')}
       </button>
       <button
         type="button"

@@ -54,7 +54,7 @@ import {
   requestDeviceCode,
 } from './oauth.js';
 import { updateTrayIcon } from './tray.js';
-import { checkForUpdate, openReleasePage } from './updater.js';
+import { checkForUpdate, openReleasePage, quitAndInstall } from './updater.js';
 import { hideDashboard, openDashboard } from './windows.js';
 
 const REGISTRY_PATH = join(homedir(), '.syncthis', 'gui-folders.json');
@@ -319,6 +319,8 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle('app:check-update', async () => {
+    // On macOS the native autoUpdater handles checking; results arrive via events.
+    if (process.platform === 'darwin') return null;
     return checkForUpdate(app.getVersion());
   });
 
@@ -330,6 +332,10 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('app:open-release-page', (_, { url }: { url: string }) => {
     openReleasePage(url);
+  });
+
+  ipcMain.handle('app:restart-and-update', () => {
+    quitAndInstall();
   });
 
   ipcMain.handle(

@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
 import { MakerDeb } from '@electron-forge/maker-deb';
 import { MakerDMG } from '@electron-forge/maker-dmg';
+import { MakerZIP } from '@electron-forge/maker-zip';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import type { ForgeConfig } from '@electron-forge/shared-types';
@@ -45,6 +46,7 @@ const config: ForgeConfig = {
       },
       ['darwin'],
     ),
+    new MakerZIP({}, ['darwin']),
     new MakerDeb({ options: { bin: 'SyncThis' } }, ['linux']),
   ],
   hooks: {
