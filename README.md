@@ -1,3 +1,9 @@
+> [!CAUTION]
+> **Disclaimer:** This is a personal project, built primarily for my own use.
+> I share it in the spirit of open source software, but I am not responsible for any lost data.
+> Please review the [Security Policy](SECURITY.md) before use.
+> LLM tools were involved in creating this project.
+
 [![GitHub Release](https://img.shields.io/github/v/release/mischah/syncthis)](https://github.com/mischah/syncthis/releases)
 [![CI](https://github.com/mischah/syncthis/actions/workflows/ci.yml/badge.svg)](https://github.com/mischah/syncthis/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
