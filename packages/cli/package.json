@@ -6,7 +6,7 @@
     "email": "mail@michael-kuehnel.de",
     "url": "http://michael-kuehnel.de"
   },
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Automatic directory synchronization via Git",
   "type": "module",
   "bin": {
