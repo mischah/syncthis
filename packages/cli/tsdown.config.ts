@@ -7,4 +7,5 @@ export default defineConfig({
   shims: true,
   banner: '#!/usr/bin/env node',
   fixedExtension: false,
+  deps: { alwaysBundle: [/.*/] },
 });
