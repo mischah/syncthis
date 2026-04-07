@@ -20,10 +20,10 @@
     "release:preview": "npm run release:preview -w packages/cli"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.7",
+    "@biomejs/biome": "2.4.10",
     "husky": "9.1.7",
     "lint-staged": "16.4.0",
-    "np": "11.0.2"
+    "np": "11.0.3"
   },
   "lint-staged": {
     "*.{ts,js,json}": [
