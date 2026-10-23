@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { access, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { homedir } from 'node:os';
+import { join, resolve, sep } from 'node:path';
 import { loadConfig, mergeWithFlags, writeConfig } from '../config.js';
 import {
   type DaemonConfig,
@@ -74,6 +75,22 @@ export async function resolveServiceName(flags: DaemonFlags): Promise<string> {
 
 export function getPlatformOrExit(): DaemonPlatform {
   return getPlatform();
+}
+
+// launchd jobs need their own privacy approval for ~/Documents, separate from the terminal's.
+export function getMacosStartHint(dirPath: string): { reason: string; settings: string } {
+  const documentsDir = join(homedir(), 'Documents');
+  const resolved = resolve(dirPath);
+  if (resolved === documentsDir || resolved.startsWith(documentsDir + sep)) {
+    return {
+      reason: 'macOS may have blocked access to ~/Documents.',
+      settings: 'System Settings → Privacy & Security → Files and Folders',
+    };
+  }
+  return {
+    reason: 'macOS may have blocked the background activity.',
+    settings: 'System Settings → General → Login Items → Allow in the Background',
+  };
 }
 
 export async function daemonStart(flags: DaemonFlags): Promise<DaemonStartData> {
@@ -157,7 +174,8 @@ export async function daemonStart(flags: DaemonFlags): Promise<DaemonStartData> 
   let warning = `Daemon may not have started correctly. Check logs: ${logPath}`;
   if (process.platform === 'darwin') {
     const stderrLog = join(dirPath, '.syncthis', 'logs', 'launchd-stderr.log');
-    warning += ` | System log: ${stderrLog} | Hint: macOS may have blocked the background activity. Approve in: System Settings → General → Login Items → Allow in the Background`;
+    const hint = getMacosStartHint(dirPath);
+    warning += ` | System log: ${stderrLog} | Hint: ${hint.reason} Approve in: ${hint.settings}`;
   }
   return { dirPath, started: false, warning };
 }
@@ -175,8 +193,9 @@ export function printDaemonStartResult(result: DaemonStartData): void {
     if (process.platform === 'darwin') {
       const stderrLog = join(result.dirPath, '.syncthis', 'logs', 'launchd-stderr.log');
       msg += `\n  System log: ${stderrLog}`;
-      msg += '\n\n  Hint: macOS may have blocked the background activity.';
-      msg += '\n  Approve it in: System Settings → General → Login Items → Allow in the Background';
+      const hint = getMacosStartHint(result.dirPath);
+      msg += `\n\n  Hint: ${hint.reason}`;
+      msg += `\n  Approve it in: ${hint.settings}`;
     }
     console.warn(msg);
   }

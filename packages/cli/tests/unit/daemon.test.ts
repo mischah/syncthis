@@ -1,3 +1,5 @@
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
@@ -36,6 +38,7 @@ import {
   type BatchResult,
   daemonStop,
   daemonUninstall,
+  getMacosStartHint,
   printBatchSummary,
 } from '../../src/commands/daemon.js';
 
@@ -64,6 +67,22 @@ function makeDaemon(
     schedule: overrides.schedule ?? '*/5 * * * *',
   };
 }
+
+// ---------------------------------------------------------------------------
+// getMacosStartHint
+// ---------------------------------------------------------------------------
+
+describe('getMacosStartHint', () => {
+  it('points to Files and Folders for paths inside ~/Documents', () => {
+    const hint = getMacosStartHint(join(homedir(), 'Documents', 'Notes'));
+    expect(hint.settings).toContain('Files and Folders');
+  });
+
+  it('points to Login Items for paths outside ~/Documents', () => {
+    const hint = getMacosStartHint(join(homedir(), 'Documents-old', 'Notes'));
+    expect(hint.settings).toContain('Login Items');
+  });
+});
 
 // ---------------------------------------------------------------------------
 // printBatchSummary
