@@ -25,7 +25,8 @@
     "test:watch": "vitest --coverage",
     "typecheck": "tsc --noEmit",
     "prepack": "npm run build && cp ./README.md ./dist/README.md",
-    "version": "npm pkg set version=$npm_package_version --prefix ../shared && npm pkg set version=$npm_package_version --prefix ../gui && git add ../shared/package.json ../gui/package.json",
+    "version": "npm pkg set version=$npm_package_version --prefix ../shared && npm pkg set version=$npm_package_version --prefix ../gui && npm install --package-lock-only --ignore-scripts --prefix ../.. && git add package.json ../shared/package.json ../gui/package.json ../../package-lock.json",
+    "postversion": "git commit -m \"chore: release v$npm_package_version\" && git tag -a v$npm_package_version -m v$npm_package_version",
     "release": "np",
     "release:preview": "np --preview"
   },
