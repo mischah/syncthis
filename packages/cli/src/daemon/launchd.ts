@@ -1,4 +1,4 @@
-import { readFile, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { execa } from 'execa';
@@ -28,6 +28,9 @@ export class LaunchdPlatform implements DaemonPlatform {
     } catch {
       // Not loaded yet — ignore
     }
+    // launchd does not create missing parent dirs for StandardOutPath/StandardErrorPath,
+    // and .syncthis/ is gitignored, so it is absent in a fresh clone.
+    await mkdir(join(config.dirPath, '.syncthis', 'logs'), { recursive: true });
     await writeFile(plistPath, plist, 'utf-8');
     await execa('launchctl', ['load', plistPath]);
   }

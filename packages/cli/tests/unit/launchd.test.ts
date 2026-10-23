@@ -8,7 +8,9 @@ vi.mock('execa', () => ({ execa: mockExeca }));
 const mockWriteFile = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 const mockReadFile = vi.hoisted(() => vi.fn().mockResolvedValue(''));
 const mockUnlink = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+const mockMkdir = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 vi.mock('node:fs/promises', () => ({
+  mkdir: mockMkdir,
   writeFile: mockWriteFile,
   readFile: mockReadFile,
   unlink: mockUnlink,
@@ -55,6 +57,7 @@ describe('LaunchdPlatform', () => {
     mockWriteFile.mockResolvedValue(undefined);
     mockReadFile.mockResolvedValue('');
     mockUnlink.mockResolvedValue(undefined);
+    mockMkdir.mockResolvedValue(undefined);
   });
 
   describe('install()', () => {
@@ -64,6 +67,17 @@ describe('LaunchdPlatform', () => {
         PLIST_PATH,
         expect.stringContaining('<string>com.syncthis.user-vault-notes</string>'),
         'utf-8',
+      );
+    });
+
+    it('creates the log directory before loading the job', async () => {
+      await platform.install(BASE_CONFIG);
+      expect(mockMkdir).toHaveBeenCalledWith('/home/user/vault-notes/.syncthis/logs', {
+        recursive: true,
+      });
+      const loadCall = mockExeca.mock.calls.findIndex((c) => c[1]?.[0] === 'load');
+      expect(mockMkdir.mock.invocationCallOrder[0]).toBeLessThan(
+        mockExeca.mock.invocationCallOrder[loadCall],
       );
     });
 
