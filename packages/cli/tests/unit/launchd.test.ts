@@ -142,6 +142,14 @@ describe('LaunchdPlatform', () => {
       expect(result).toEqual({ state: 'not-installed' });
     });
 
+    it('does not match a service whose name only shares a prefix', async () => {
+      mockExeca.mockResolvedValueOnce({
+        stdout: '12345\t0\tcom.syncthis.user-vault-notes-2',
+      });
+      const result = await platform.status('com.syncthis.user-vault-notes');
+      expect(result).toEqual({ state: 'not-installed' });
+    });
+
     it('returns not-installed state when launchctl throws', async () => {
       mockExeca.mockRejectedValueOnce(new Error('Could not find service'));
       const result = await platform.status('com.syncthis.user-vault-notes');
@@ -223,6 +231,21 @@ describe('LaunchdPlatform', () => {
         autostart: false,
         schedule: '',
       });
+    });
+
+    it('ignores launchd jobs created for the GUI app', async () => {
+      mockExeca.mockResolvedValueOnce({
+        stdout: [
+          'PID\tStatus\tLabel',
+          '-\t0\tcom.syncthis.desktop.ShipIt',
+          '97118\t0\tapplication.com.syncthis.desktop.27479513.27479519',
+          '-\t0\tcom.syncthis.obsidian-vaults-notes',
+        ].join('\n'),
+      });
+      mockReadFile.mockResolvedValueOnce(SAMPLE_PLIST);
+
+      const result = await platform.listAll();
+      expect(result.map((r) => r.serviceName)).toEqual(['com.syncthis.obsidian-vaults-notes']);
     });
   });
 });

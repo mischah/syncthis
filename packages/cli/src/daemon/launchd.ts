@@ -5,6 +5,14 @@ import { execa } from 'execa';
 import type { DaemonConfig, DaemonInfo, DaemonPlatform, DaemonStatus } from './platform.js';
 import { generatePlist } from './templates.js';
 
+// Matches labels produced by generateServiceName(); excludes jobs macOS creates
+// for the GUI app (bundle id com.syncthis.desktop), e.g. its ShipIt updater.
+const SERVICE_LABEL = /^com\.syncthis\.[a-z0-9-]+$/;
+
+function labelOf(launchctlLine: string): string {
+  return launchctlLine.trim().split(/\t/)[2] ?? '';
+}
+
 export class LaunchdPlatform implements DaemonPlatform {
   private readonly plistDir = join(homedir(), 'Library', 'LaunchAgents');
 
@@ -41,7 +49,7 @@ export class LaunchdPlatform implements DaemonPlatform {
   async status(serviceName: string): Promise<DaemonStatus> {
     try {
       const { stdout } = await execa('launchctl', ['list']);
-      const line = stdout.split('\n').find((l) => l.includes(serviceName));
+      const line = stdout.split('\n').find((l) => labelOf(l) === serviceName);
       if (!line) return { state: 'not-installed' };
       const pidStr = line.trim().split(/\t/)[0];
       if (pidStr !== '-') {
@@ -55,7 +63,7 @@ export class LaunchdPlatform implements DaemonPlatform {
 
   async listAll(): Promise<DaemonInfo[]> {
     const { stdout } = await execa('launchctl', ['list']);
-    const lines = stdout.split('\n').filter((line) => line.includes('com.syncthis'));
+    const lines = stdout.split('\n').filter((line) => SERVICE_LABEL.test(labelOf(line)));
 
     const results: DaemonInfo[] = [];
     for (const line of lines) {
