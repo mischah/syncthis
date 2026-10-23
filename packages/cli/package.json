@@ -57,6 +57,7 @@
     "vitest": "4.1.0"
   },
   "np": {
-    "contents": "dist"
+    "contents": "dist",
+    "cleanup": false
   }
 }
