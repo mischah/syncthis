@@ -13,7 +13,6 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityLog } from '../components/ActivityLog';
 import { Toast } from '../components/Toast';
-import { UpdateBanner } from '../components/UpdateBanner';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import {
@@ -244,8 +243,6 @@ export function DetailView() {
             </Button>
           </div>
         </div>
-
-        <UpdateBanner />
 
         {showLingerWarning && (
           <div
