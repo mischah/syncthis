@@ -12,6 +12,10 @@ export interface SyncResult {
   error?: string;
 }
 
+// Kill git if it produces no output for this long. Without it, a fetch whose
+// TCP connection died during OS sleep hangs forever and stalls the scheduler.
+export const GIT_BLOCK_TIMEOUT_MS = 2 * 60 * 1000;
+
 const CONFLICT_PREFIXES = ['UU ', 'AA ', 'DD ', 'AU ', 'UA ', 'DU ', 'UD '];
 
 function toLocalISOString(date: Date): string {
@@ -32,7 +36,10 @@ export async function runSyncCycle(
   logger: Logger,
   options?: { forceNonInteractive?: boolean; gitBinary?: string; gitEnv?: Record<string, string> },
 ): Promise<SyncResult> {
-  const git = simpleGit(dirPath, options?.gitBinary ? { binary: options.gitBinary } : {});
+  const git = simpleGit(dirPath, {
+    ...(options?.gitBinary ? { binary: options.gitBinary } : {}),
+    timeout: { block: GIT_BLOCK_TIMEOUT_MS },
+  });
   if (options?.gitEnv) git.env(options.gitEnv);
 
   // Check if rebase is in progress from a previous conflict
