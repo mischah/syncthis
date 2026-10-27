@@ -3,6 +3,8 @@ import type { SyncthisConfig } from './config.js';
 
 export interface SchedulerHandle {
   stop(): void;
+  /** Runs syncFn immediately unless a cycle is already in progress. */
+  triggerNow(): void;
 }
 
 export function startScheduler(
@@ -25,7 +27,7 @@ export function startScheduler(
     const job = new Cron(config.cron, () => {
       void runIfIdle();
     });
-    return { stop: () => job.stop() };
+    return { stop: () => job.stop(), triggerNow: () => void runIfIdle() };
   }
 
   // Recursive setTimeout instead of setInterval: each tick schedules the next
@@ -46,5 +48,6 @@ export function startScheduler(
       stopped = true;
       clearTimeout(timer);
     },
+    triggerNow: () => void runIfIdle(),
   };
 }

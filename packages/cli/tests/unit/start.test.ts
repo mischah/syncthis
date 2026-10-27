@@ -35,6 +35,7 @@ const { mockAcquireLock, mockReleaseLock, mockReadLockFile } = vi.hoisted(() => 
     .mockResolvedValue({ pid: process.pid, startedAt: new Date().toISOString() }),
 }));
 vi.mock('../../src/lock.js', () => ({
+  SYNC_TRIGGER_SIGNAL: 'SIGUSR2',
   acquireLock: mockAcquireLock,
   releaseLock: mockReleaseLock,
   readLockFile: mockReadLockFile,
@@ -80,7 +81,7 @@ const mockLogger = {
   error: vi.fn(),
 };
 
-const mockSchedulerHandle = { stop: vi.fn() };
+const mockSchedulerHandle = { stop: vi.fn(), triggerNow: vi.fn() };
 
 let mockExit: ReturnType<typeof vi.spyOn>;
 
@@ -231,5 +232,29 @@ describe('handleStart – stop/auto-both + conflict → exits as before', () => 
     await expect(capturedSchedulerCallback?.()).rejects.toThrow('process.exit(1)');
 
     expect(mockExit).toHaveBeenCalledWith(1);
+  });
+});
+
+describe('handleStart – sync trigger signal', () => {
+  afterEach(() => {
+    process.removeAllListeners('SIGUSR2');
+  });
+
+  it('registers the signal handler before acquiring the lock', async () => {
+    mockAcquireLock.mockImplementation(async () => {
+      expect(process.listenerCount('SIGUSR2')).toBeGreaterThan(0);
+    });
+
+    await handleStart(FOREGROUND_FLAGS);
+
+    expect(mockAcquireLock).toHaveBeenCalled();
+  });
+
+  it('triggers an immediate scheduler run on SIGUSR2', async () => {
+    await handleStart(FOREGROUND_FLAGS);
+
+    process.emit('SIGUSR2', 'SIGUSR2');
+
+    expect(mockSchedulerHandle.triggerNow).toHaveBeenCalledTimes(1);
   });
 });

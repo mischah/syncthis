@@ -19,7 +19,7 @@ import { loadConfig, writeConfig } from '../../../cli/src/config.js';
 import { updateHealthAfterCycle } from '../../../cli/src/health.js';
 import { determineHealth } from '../../../cli/src/health-check.js';
 import { createLogger } from '../../../cli/src/logger.js';
-import { runSyncCycle } from '../../../cli/src/sync.js';
+import { GIT_BLOCK_TIMEOUT_MS, runSyncCycle } from '../../../cli/src/sync.js';
 import { loadAppSettings, saveAppSettings } from './app-settings.js';
 import { runCli, startService, stopService } from './cli-bridge.js';
 import {
@@ -37,6 +37,7 @@ import {
   setupCredentials,
   writeCredentialHelper,
 } from './credentials.js';
+import { syncViaDaemon } from './daemon-sync.js';
 import { getGitBinaryPath, getGitEnv, getSimpleGit } from './git-provider.js';
 import { readRecentLogs, watchLogFile } from './log-parser.js';
 import {
@@ -66,6 +67,9 @@ function sanitizeError(message: string): string {
 }
 
 let lingerCheckResult: boolean | null = null;
+
+// A cycle runs pull and push, each of which may run into the git block timeout.
+const SYNC_NOW_TIMEOUT_MS = 2 * GIT_BLOCK_TIMEOUT_MS;
 
 const logWatchers = new Map<string, () => void>();
 const previousConflictState = new Map<string, boolean>();
@@ -303,6 +307,9 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('service:sync-now', async (_, { dirPath }: { dirPath: string }) => {
     updateTrayIcon('syncing');
     try {
+      // Let a running daemon do the sync so two cycles never touch the repo at once.
+      if (await syncViaDaemon(dirPath, SYNC_NOW_TIMEOUT_MS)) return;
+
       const config = await loadConfig(dirPath);
       const logger = createLogger({ level: 'debug', logDir: join(dirPath, '.syncthis', 'logs') });
       const result = await runSyncCycle(dirPath, config, logger, {
