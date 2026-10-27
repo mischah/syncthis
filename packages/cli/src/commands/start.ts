@@ -4,7 +4,7 @@ import { promisify } from 'node:util';
 import { loadConfig, mergeWithFlags, type SyncthisConfig } from '../config.js';
 import { updateHealthAfterCycle } from '../health.js';
 import { type BatchData, printJson, printJsonError } from '../json-output.js';
-import { acquireLock, readLockFile, releaseLock } from '../lock.js';
+import { acquireLock, readLockFile, releaseLock, SYNC_TRIGGER_SIGNAL } from '../lock.js';
 import { createLogger, type LogLevel } from '../logger.js';
 import { type SchedulerHandle, startScheduler } from '../scheduler.js';
 import { runSyncCycle } from '../sync.js';
@@ -157,6 +157,18 @@ async function runForeground(flags: StartFlags): Promise<void> {
 
   const schedule = config.cron ?? `${config.interval}s`;
 
+  let isShuttingDown = false;
+  let schedulerHandle: SchedulerHandle | null = null;
+
+  // Registered before the lock is written: the lock advertises this signal, and
+  // an unhandled SIGUSR2 would terminate the process. Triggers during the
+  // initial cycle are ignored — that cycle already updates health.
+  process.on(SYNC_TRIGGER_SIGNAL, () => {
+    if (isShuttingDown || schedulerHandle === null) return;
+    logger.debug('Sync triggered by signal.');
+    schedulerHandle.triggerNow();
+  });
+
   // Acquire lock (removes stale locks automatically)
   try {
     await acquireLock(dirPath, schedule);
@@ -167,9 +179,6 @@ async function runForeground(flags: StartFlags): Promise<void> {
 
   const lockData = await readLockFile(dirPath);
   const startedAt = lockData?.startedAt ?? new Date().toISOString();
-
-  let isShuttingDown = false;
-  let schedulerHandle: SchedulerHandle | null = null;
 
   async function gracefulShutdown(): Promise<void> {
     if (isShuttingDown) return;

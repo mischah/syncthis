@@ -2,7 +2,13 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { acquireLock, isLocked, readLockFile, releaseLock } from '../../src/lock.js';
+import {
+  acquireLock,
+  isLocked,
+  readLockFile,
+  releaseLock,
+  SYNC_TRIGGER_SIGNAL,
+} from '../../src/lock.js';
 
 const LOCK_FILE = '.syncthis.lock';
 const STALE_PID = 999999;
@@ -18,6 +24,12 @@ afterEach(async () => {
 });
 
 describe('acquireLock', () => {
+  it('advertises the sync trigger signal in the lock file', async () => {
+    await acquireLock(tempDir);
+
+    expect((await readLockFile(tempDir))?.syncSignal).toBe(SYNC_TRIGGER_SIGNAL);
+  });
+
   it('creates lock file with correct PID', async () => {
     await acquireLock(tempDir);
 

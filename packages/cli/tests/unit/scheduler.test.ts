@@ -51,6 +51,44 @@ describe('startScheduler – interval mode', () => {
   });
 });
 
+describe('startScheduler – triggerNow', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('runs syncFn immediately without waiting for the interval', async () => {
+    const syncFn = vi.fn().mockResolvedValue(undefined);
+    const handle = startScheduler(makeConfig({ interval: 60 }), syncFn);
+
+    handle.triggerNow();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(syncFn).toHaveBeenCalledTimes(1);
+
+    handle.stop();
+  });
+
+  it('runs syncFn immediately in cron mode', async () => {
+    const syncFn = vi.fn().mockResolvedValue(undefined);
+    const handle = startScheduler(makeConfig({ cron: '*/5 * * * *' }), syncFn);
+
+    handle.triggerNow();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(syncFn).toHaveBeenCalledTimes(1);
+
+    handle.stop();
+  });
+
+  it('is skipped while a cycle is already running', async () => {
+    const syncFn = vi.fn(() => new Promise<void>(() => {})); // never resolves
+    const handle = startScheduler(makeConfig({ interval: 10 }), syncFn);
+
+    await vi.advanceTimersByTimeAsync(10_000); // scheduled cycle starts and hangs
+    handle.triggerNow();
+
+    expect(syncFn).toHaveBeenCalledTimes(1);
+    handle.stop();
+  });
+});
+
 describe('startScheduler – cron mode', () => {
   beforeEach(() => {
     vi.useFakeTimers();

@@ -3,10 +3,15 @@ import { join } from 'node:path';
 
 const LOCK_FILENAME = '.syncthis.lock';
 
+// SIGUSR1 is reserved by Node for the inspector, so use SIGUSR2.
+export const SYNC_TRIGGER_SIGNAL = 'SIGUSR2';
+
 export interface LockData {
   pid: number;
   startedAt: string;
   schedule?: string;
+  /** Signal that makes the daemon sync immediately. Absent for daemons that don't support it. */
+  syncSignal?: NodeJS.Signals;
 }
 
 function isProcessRunning(pid: number): boolean {
@@ -62,6 +67,7 @@ export async function acquireLock(dirPath: string, schedule?: string): Promise<v
     pid: process.pid,
     startedAt: new Date().toISOString(),
     ...(schedule !== undefined && { schedule }),
+    syncSignal: SYNC_TRIGGER_SIGNAL,
   };
   await writeFile(join(dirPath, LOCK_FILENAME), `${JSON.stringify(newLock, null, 2)}\n`, 'utf8');
 }
