@@ -16,6 +16,7 @@ import type {
 } from '@syncthis/shared';
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import { loadConfig, writeConfig } from '../../../cli/src/config.js';
+import { updateHealthAfterCycle } from '../../../cli/src/health.js';
 import { determineHealth } from '../../../cli/src/health-check.js';
 import { createLogger } from '../../../cli/src/logger.js';
 import { runSyncCycle } from '../../../cli/src/sync.js';
@@ -304,11 +305,12 @@ export function registerIpcHandlers(): void {
     try {
       const config = await loadConfig(dirPath);
       const logger = createLogger({ level: 'debug', logDir: join(dirPath, '.syncthis', 'logs') });
-      await runSyncCycle(dirPath, config, logger, {
+      const result = await runSyncCycle(dirPath, config, logger, {
         forceNonInteractive: true,
         gitBinary: getGitBinaryPath(),
         gitEnv: getGitEnv(),
       });
+      await updateHealthAfterCycle(dirPath, result, new Date().toISOString());
     } finally {
       await Promise.all([refreshTrayIcon(), broadcastHealthChanged(dirPath)]);
     }

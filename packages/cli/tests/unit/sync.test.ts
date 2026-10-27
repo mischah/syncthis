@@ -1,7 +1,8 @@
+import simpleGit from 'simple-git';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SyncthisConfig } from '../../src/config.js';
 import type { Logger } from '../../src/logger.js';
-import { runSyncCycle } from '../../src/sync.js';
+import { GIT_BLOCK_TIMEOUT_MS, runSyncCycle } from '../../src/sync.js';
 
 const mockGit = vi.hoisted(() => ({
   raw: vi.fn(),
@@ -59,6 +60,32 @@ beforeEach(() => {
 });
 
 describe('runSyncCycle', () => {
+  it('creates simple-git with a block timeout so hung network calls are aborted', async () => {
+    mockGit.raw
+      .mockResolvedValueOnce('')
+      .mockResolvedValueOnce('abc1234\n')
+      .mockResolvedValueOnce('abc1234\n');
+
+    await runSyncCycle('/repo', config, logger, { gitBinary: '/usr/bin/git' });
+
+    expect(simpleGit).toHaveBeenCalledWith('/repo', {
+      binary: '/usr/bin/git',
+      timeout: { block: GIT_BLOCK_TIMEOUT_MS },
+    });
+  });
+
+  it('returns network-error when pull is aborted by the block timeout', async () => {
+    mockGit.raw
+      .mockResolvedValueOnce('') // git status --porcelain
+      .mockResolvedValueOnce('abc1234\n') // rev-parse HEAD (before pull)
+      .mockResolvedValueOnce(''); // git status --porcelain -z (after failed pull)
+    mockGit.pull.mockRejectedValueOnce(new Error('block timeout reached'));
+
+    const result = await runSyncCycle('/repo', config, logger);
+
+    expect(result.status).toBe('network-error');
+  });
+
   it('returns { status: "no-changes" } when no local or remote changes exist', async () => {
     // git status → empty, rev-parse HEAD (before) → same as after pull
     mockGit.raw
