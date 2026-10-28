@@ -5,6 +5,12 @@ declare const DASHBOARD_VITE_DEV_SERVER_URL: string;
 declare const DASHBOARD_VITE_NAME: string;
 
 let dashboardWindow: BrowserWindow | null = null;
+let isQuitting = false;
+
+/** Lets the dashboard actually close instead of hiding, so a quit can proceed. */
+export function allowWindowsToClose(): void {
+  isQuitting = true;
+}
 
 function createDashboardWindow(): BrowserWindow {
   const backgroundColor = nativeTheme.shouldUseDarkColors ? '#1a1918' : '#ffffff';
@@ -34,6 +40,8 @@ function createDashboardWindow(): BrowserWindow {
   }
 
   win.on('close', (event) => {
+    // autoUpdater.quitAndInstall() closes all windows before quitting
+    if (isQuitting) return;
     event.preventDefault();
     hideDashboard();
   });

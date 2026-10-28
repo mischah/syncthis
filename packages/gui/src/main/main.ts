@@ -5,7 +5,7 @@ import { initGitProvider } from './git-provider.js';
 import { readRegistry, registerIpcHandlers, startHealthPolling } from './ipc.js';
 import { createTray } from './tray.js';
 import { startUpdateChecker } from './updater.js';
-import { hideDashboard, openDashboard } from './windows.js';
+import { allowWindowsToClose, hideDashboard, openDashboard } from './windows.js';
 
 const _startupTimestamp = Date.now();
 
@@ -76,6 +76,8 @@ app.on('ready', async () => {
 app.on('window-all-closed', () => {
   // App lives in the tray — don't quit when all windows close
 });
+
+app.on('before-quit', allowWindowsToClose);
 
 app.on('activate', () => {
   // macOS: open dashboard if dock icon is clicked (e.g., visible during setup)
