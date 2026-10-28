@@ -2,6 +2,7 @@ import type { UpdateInfo } from '@syncthis/shared';
 import { autoUpdater, BrowserWindow, Notification, net, shell } from 'electron';
 
 import { loadAppSettings } from './app-settings.js';
+import { allowWindowsToClose } from './windows.js';
 
 export type { UpdateInfo };
 
@@ -22,6 +23,7 @@ export function openReleasePage(url: string): void {
 }
 
 export function quitAndInstall(): void {
+  allowWindowsToClose();
   autoUpdater.quitAndInstall();
 }
 
